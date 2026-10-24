@@ -31,6 +31,24 @@ export function toast(text, ms = 3800) {
   setTimeout(() => el.remove(), ms);
 }
 
+// System notice from the CO-SYNE administrator: a banner across the top of
+// the app until dismissed.
+export function showNotice(n) {
+  let host = document.getElementById('cosyne-notices');
+  if (!host) {
+    host = Object.assign(document.createElement('div'), { id: 'cosyne-notices', className: 'notices' });
+    document.body.append(host);
+  }
+  if (n.id && host.querySelector(`[data-notice="${CSS.escape(n.id)}"]`)) return;
+  const el = Object.assign(document.createElement('div'), { className: `notice-bar ${n.level ?? 'info'}` });
+  if (n.id) el.dataset.notice = n.id;
+  el.setAttribute('role', n.level === 'critical' ? 'alert' : 'status');
+  el.innerHTML = `<b>${n.level === 'critical' ? 'Critical notice' : 'CO-SYNE notice'}</b><span class="grow">${esc(n.text)}</span><button class="btn sm ghost" aria-label="Dismiss">✕</button>`;
+  el.querySelector('button').onclick = () => el.remove();
+  host.append(el);
+  tone(n.level === 'critical' ? 'alert' : 'chime');
+}
+
 let modalClose = null;
 export function showModal(html, { onClose, wide } = {}) {
   hideModal();

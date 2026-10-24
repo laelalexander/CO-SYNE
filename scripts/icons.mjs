@@ -5,7 +5,7 @@ import fs from 'node:fs';
 
 const b = await chromium.launch();
 const p = await b.newPage();
-for (const name of ['driver', 'officer', 'dispatch']) {
+for (const name of ['driver', 'officer', 'dispatch', 'admin']) {
   const svg = fs.readFileSync(`public/icons/${name}.svg`, 'utf8');
   for (const size of [192, 512]) {
     await p.setViewportSize({ width: size, height: size });

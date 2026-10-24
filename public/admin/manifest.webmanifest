@@ -1,0 +1,16 @@
+{
+  "id": "cosyne-admin",
+  "name": "CO-SYNE Main Admin",
+  "short_name": "CO-SYNE Admin",
+  "description": "System administration for the whole CO-SYNE network: health, devices, credentials, modules, evidence ledger, and system notices.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1013",
+  "theme_color": "#0e1013",
+  "icons": [
+    { "src": "../icons/admin.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "../icons/admin-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/admin-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

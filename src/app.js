@@ -1,6 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +22,84 @@ const JSQR_DIR = path.join(here, '..', 'node_modules', 'jsqr', 'dist');
 const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const ALERT_STATUSES = ['new', 'dispatched', 'acknowledged', 'en_route', 'on_scene', 'resolved', 'cancelled'];
 const UNIT_STATUSES = ['available', 'en_route', 'on_scene', 'busy', 'out_of_service'];
-const APPS = ['driver', 'officer', 'dispatch'];
+const APPS = ['driver', 'officer', 'dispatch', 'admin', 'downloads'];
+const NOTICE_LEVELS = ['info', 'warn', 'critical'];
+const AUDIENCES = ['all', 'driver', 'officer', 'dispatch'];
 const normalize = (v) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const PKG = JSON.parse(fs.readFileSync(path.join(here, '..', 'package.json'), 'utf8'));
+
+// The three installable CO-SYNE modules, as listed in the admin console and on
+// the public downloads page.
+export const MODULES = [
+  { id: 'driver', name: 'CO-SYNE Driver', file: 'CO-SYNE-Driver', device: 'Phone', window: '480,960',
+    summary: "The driver's phone app: verified digital ID, the pull-over alert with the officer's verified identity, video with the officer, tickets, and one-tap emergency." },
+  { id: 'officer', name: 'CO-SYNE Officer Terminal', file: 'CO-SYNE-Officer-Terminal', device: 'Patrol terminal', window: '1600,960', kiosk: true,
+    summary: "The patrol vehicle's console: sticker scanner, stop console with live video, records lookup, map, CAD calls, eCitations, reports, and evidence." },
+  { id: 'dispatch', name: 'CO-SYNE Dispatch', file: 'CO-SYNE-Dispatch', device: 'Communications center', window: '1600,960',
+    summary: 'The network operations console: every stop, call, unit, and device live on the map, drop-in video, assignments, records, and the evidence ledger.' },
+];
+
+// The git commit this server was deployed from (a plain clone has no tooling).
+function gitCommit() {
+  try {
+    const gitDir = path.join(here, '..', '.git');
+    const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+    if (!head.startsWith('ref: ')) return head.slice(0, 7);
+    const ref = head.slice(5);
+    const loose = path.join(gitDir, ref);
+    if (fs.existsSync(loose)) return fs.readFileSync(loose, 'utf8').trim().slice(0, 7);
+    const packed = fs.readFileSync(path.join(gitDir, 'packed-refs'), 'utf8').split('\n').find((l) => l.endsWith(` ${ref}`));
+    return packed ? packed.slice(0, 7) : null;
+  } catch { return null; }
+}
+
+// Constant-time comparison for access codes.
+function sameSecret(a, b) {
+  const h = (v) => createHash('sha256').update(String(v ?? '')).digest();
+  return timingSafeEqual(h(a), h(b)) && String(a ?? '').length > 0;
+}
+
+// Desktop launchers: open a module as its own app window (Edge or Chrome
+// "--app" mode) with its own browser profile, so each keeps its own device key.
+function windowsLauncher(base, mods, { kiosk = false } = {}) {
+  const lines = [
+    '@echo off',
+    `rem ${mods.length > 1 ? 'CO-SYNE Network: opens the Driver, Officer Terminal and Dispatch apps' : `Opens ${mods[0].name}`} connected to ${base}`,
+    'setlocal',
+    'set "BROWSER="',
+    'for %%B in ("%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe" "%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe" "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe" "%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe" "%LocalAppData%\\Google\\Chrome\\Application\\chrome.exe") do if not defined BROWSER if exist %%B set "BROWSER=%%~B"',
+    `if not defined BROWSER (echo Microsoft Edge or Google Chrome is required. Opening ${base}/ in your default browser instead. & start "" "${base}/" & exit /b 0)`,
+  ];
+  for (const m of mods) {
+    const mode = kiosk ? '--kiosk --start-fullscreen' : `--window-size=${m.window}`;
+    lines.push(`if not exist "%LocalAppData%\\CO-SYNE\\profile-${m.id}" mkdir "%LocalAppData%\\CO-SYNE\\profile-${m.id}"`);
+    lines.push(`start "" "%BROWSER%" --app="${base}/${m.id}/" --user-data-dir="%LocalAppData%\\CO-SYNE\\profile-${m.id}" --no-first-run --no-default-browser-check --autoplay-policy=no-user-gesture-required ${mode}`);
+  }
+  return lines.join('\r\n') + '\r\n';
+}
+
+function unixLauncher(base, mods) {
+  return `#!/bin/sh
+# ${mods.length > 1 ? 'CO-SYNE Network: opens the Driver, Officer Terminal and Dispatch apps' : `Opens ${mods[0].name}`} connected to ${base}
+# Run with:  sh ${mods.length > 1 ? 'CO-SYNE-Network' : mods[0].file}.sh
+open_app() {
+  profile="$HOME/.cosyne/profile-$1"; mkdir -p "$profile"
+  flags="--app=${base}/$1/ --user-data-dir=$profile --no-first-run --no-default-browser-check --window-size=$2"
+  if [ "$(uname)" = "Darwin" ]; then
+    for app in "Google Chrome" "Microsoft Edge" "Chromium"; do
+      if [ -d "/Applications/$app.app" ]; then open -na "$app" --args $flags; return; fi
+    done
+    open "${base}/$1/"
+  else
+    for b in google-chrome chromium chromium-browser microsoft-edge; do
+      if command -v "$b" >/dev/null 2>&1; then nohup "$b" $flags >/dev/null 2>&1 & return; fi
+    done
+    xdg-open "${base}/$1/"
+  fi
+}
+${mods.map((m) => `open_app ${m.id} ${m.window}`).join('\n')}
+`;
+}
 
 // WebRTC ICE servers. With TURN_SECRET set (coturn "use-auth-secret"), each
 // client gets short-lived TURN credentials so calls connect across NAT and
@@ -59,7 +135,35 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   const citations = new Map();
   const reports = new Map();
   const demoEnabled = env.COSYNE_DEMO !== 'off';
+  // Without ADMIN_TOKEN the built-in demo code only works in demo mode.
+  const adminToken = env.ADMIN_TOKEN || (demoEnabled ? 'admin-demo' : null);
   const roomHistory = new Map(); // room -> last chat messages
+  const startedAt = new Date().toISOString();
+  const notices = []; // admin broadcasts, newest last
+  const loginFailures = new Map(); // ip -> { count, since }
+
+  // Every credential CO-SYNE has issued or seen, with its sticker, so the
+  // admin console can list them. Enrolled credentials, stickers and
+  // revocations persist in data/registry.json, so a restart keeps drivers'
+  // stickers working and revoked credentials revoked.
+  const registryFile = dataDir ? path.join(dataDir, 'registry.json') : null;
+  const credentials = new Map(); // id -> { credential, source, stickerId, firstSeen, lastSeen }
+  function saveRegistry() {
+    if (!registryFile) return;
+    const keep = [...credentials.values()].filter((r) => r.source !== 'sample');
+    const out = { credentials: keep, revoked: Object.fromEntries(identity.revoked) };
+    fs.mkdirSync(path.dirname(registryFile), { recursive: true });
+    fs.writeFileSync(registryFile + '.tmp', JSON.stringify(out), { mode: 0o600 });
+    fs.renameSync(registryFile + '.tmp', registryFile);
+  }
+  function trackCredential(credential, source, stickerId = null) {
+    const now = new Date().toISOString();
+    const rec = credentials.get(credential.id);
+    if (rec) { rec.lastSeen = now; if (stickerId) rec.stickerId = stickerId; return rec; }
+    const added = { credential, source, stickerId, firstSeen: now, lastSeen: now };
+    credentials.set(credential.id, added);
+    return added;
+  }
 
   function registerSticker(stickerId, credential) {
     const sticker = { stickerId, code: stickerId.slice(4, 10).toUpperCase(), plate: credential.subject.vehicle.plate, state: credential.subject.vehicle.state ?? null, credential };
@@ -67,16 +171,48 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     return sticker;
   }
   const samples = demoEnabled ? loadSamples({ file: dataDir ? path.join(dataDir, 'samples.json') : null, identity }) : { drivers: [], officers: [] };
-  for (const d of samples.drivers) registerSticker(d.stickerId, d.credential);
+  for (const d of samples.drivers) { registerSticker(d.stickerId, d.credential); trackCredential(d.credential, 'sample', d.stickerId); }
+  for (const o of samples.officers) trackCredential(o.credential, 'sample');
+  if (registryFile && fs.existsSync(registryFile)) {
+    const saved = JSON.parse(fs.readFileSync(registryFile, 'utf8'));
+    for (const r of saved.credentials ?? []) {
+      credentials.set(r.credential.id, r);
+      if (r.stickerId && r.credential.type === 'driver') registerSticker(r.stickerId, r.credential);
+    }
+    for (const [id, rev] of Object.entries(saved.revoked ?? {})) identity.revoked.set(id, rev);
+  }
 
   // ---------- helpers ----------
   const credHash = (c) => sha256(canonicalize(c));
   const send = (ws, msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
   const clientsWhere = (pred) => [...clients].filter((c) => c.session && pred(c));
 
+  // Base URL the apps are served from, for launchers and QR codes. PUBLIC_URL
+  // (e.g. https://iobeacons.com/cosyne) when served behind a proxy under a path.
+  function publicBase(req) {
+    const proto = req.headers['x-forwarded-proto'] ?? (req.socket.encrypted ? 'https' : 'http');
+    return (env.PUBLIC_URL ?? `${proto}://${req.headers.host}`).replace(/\/+$/, '');
+  }
+  const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim();
+
+  function revokeCredential(id, reason, by) {
+    identity.revoke(id, reason);
+    ledger.append('credential_revoked', { credentialId: id, reason, by }, id);
+    for (const [token, s] of sessions) if (s.credential?.id === id) sessions.delete(token);
+    // Sign the device out now; its next sign-in fails verification.
+    for (const c of clients) {
+      if (c.session?.credential?.id !== id) continue;
+      send(c.ws, { t: 'error', error: `sign-in failed: credential ${reason}`, ref: 'revoked' });
+      c.ws.close(4003, 'credential revoked');
+    }
+    saveRegistry();
+  }
+
   function sessionFrom(req, { role, required = true } = {}) {
     const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    const s = token ? sessions.get(token) : null;
+    let s = token ? sessions.get(token) : null;
+    // Admin sessions expire after 12 hours.
+    if (s?.role === 'admin' && Date.now() - Date.parse(s.since) > 12 * 3600_000) { sessions.delete(token); s = null; }
     if (!s && required) throw new HttpError(401, 'sign in required');
     if (s && role && ![].concat(role).includes(s.role)) throw new HttpError(403, `requires ${[].concat(role).join(' or ')} role`);
     return s ?? null;
@@ -111,7 +247,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   // Every device signed in to the CO-SYNE network, for the dispatch network view.
   function networkState() {
     const devices = [...clients].filter((c) => c.session).map((c) => ({
-      peerId: c.id, role: c.session.role, name: c.session.profile?.name ?? c.session.label, unitId: c.session.unitId ?? null,
+      peerId: c.id, role: c.session.role, name: c.session.profile?.name ?? c.session.label, unitId: c.session.unitId ?? null, callsign: units.get(c.session.unitId)?.callsign ?? null,
       plate: c.session.plate ?? null, agency: c.session.profile?.agency ?? null, credentialId: c.session.credential?.id ?? null, since: c.since, rooms: [...c.rooms],
     }));
     return { devices, ledger: { entries: ledger.entries.length, head: ledger.head() } };
@@ -355,6 +491,8 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     pilot: env.COSYNE_PILOT ?? 'Tulsa Police Department pilot',
     demo: demoEnabled,
     dispatchHint: demoEnabled && !env.DISPATCH_TOKEN ? dispatchToken : null, // only the built-in demo code is ever hinted
+    adminHint: demoEnabled && !env.ADMIN_TOKEN ? adminToken : null,
+    version: PKG.version,
   }));
   route('GET', '/api/trust', () => ({ issuers: identity.trustRegistry() }));
 
@@ -371,23 +509,24 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     } else throw new HttpError(400, 'type must be officer or driver');
     const credential = identity.issue({ issuerId, type, subject, subjectKey: publicJwk });
     ledger.append('credential_issued', { credentialId: credential.id, type, issuer: issuerId, credHash: credHash(credential) }, credential.id);
+    let out = { credential };
     if (type === 'driver') {
       const sticker = registerSticker(randomId('stk', 6), credential);
       ledger.append('sticker_issued', { stickerId: sticker.stickerId, credentialId: credential.id, plate: sticker.plate }, credential.id);
-      return { credential, stickerId: sticker.stickerId };
+      out = { credential, stickerId: sticker.stickerId };
     }
-    return { credential };
+    trackCredential(credential, 'enrolled', out.stickerId);
+    saveRegistry();
+    return out;
   });
 
   route('POST', '/api/credentials/:id/revoke', ({ req, params, body }) => {
-    sessionFrom(req, { role: 'dispatch' });
-    identity.revoke(params.id, body.reason ?? 'revoked');
-    ledger.append('credential_revoked', { credentialId: params.id, reason: body.reason ?? 'revoked' }, params.id);
-    for (const [token, s] of sessions) if (s.credential?.id === params.id) sessions.delete(token);
+    const s = sessionFrom(req, { role: ['dispatch', 'admin'] });
+    revokeCredential(params.id, String(body.reason ?? 'revoked').slice(0, 200), s.role);
     return { ok: true };
   });
 
-  route('GET', '/api/state', ({ req }) => { sessionFrom(req, { role: 'dispatch' }); return dispatchState(); });
+  route('GET', '/api/state', ({ req }) => { sessionFrom(req, { role: ['dispatch', 'admin'] }); return dispatchState(); });
 
   route('POST', '/api/alerts', ({ req, body }) => createAlert({ session: sessionFrom(req, { required: false }), body }));
   route('GET', '/api/alerts/:id', ({ req, params }) => {
@@ -502,7 +641,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   route('GET', '/api/citations', ({ req }) => {
     const s = sessionFrom(req);
     const all = [...citations.values()];
-    if (s.role === 'dispatch') return { citations: all };
+    if (['dispatch', 'admin'].includes(s.role)) return { citations: all };
     if (s.role === 'officer') return { citations: all.filter((c) => c.officer.credentialId === s.credential.id) };
     return { citations: all.filter((c) => c.driver.credentialId === s.credential.id) };
   });
@@ -528,12 +667,12 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     return report;
   });
   route('GET', '/api/reports', ({ req }) => {
-    const s = sessionFrom(req, { role: ['dispatch', 'officer'] });
+    const s = sessionFrom(req, { role: ['dispatch', 'officer', 'admin'] });
     const all = [...reports.values()].reverse();
-    return { reports: s.role === 'dispatch' ? all : all.filter((r) => r.officer.credentialId === s.credential.id) };
+    return { reports: s.role !== 'officer' ? all : all.filter((r) => r.officer.credentialId === s.credential.id) };
   });
   route('GET', '/api/reports/:id', ({ req, params }) => {
-    const s = sessionFrom(req, { role: ['dispatch', 'officer'] });
+    const s = sessionFrom(req, { role: ['dispatch', 'officer', 'admin'] });
     const r = reports.get(params.id);
     if (!r) throw new HttpError(404, 'no such report');
     if (s.role === 'officer' && r.officer.credentialId !== s.credential.id) throw new HttpError(403, 'not your report');
@@ -568,7 +707,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   }
 
   route('GET', '/api/lookup', ({ req, url }) => {
-    const s = sessionFrom(req, { role: ['officer', 'dispatch'] });
+    const s = sessionFrom(req, { role: ['officer', 'dispatch', 'admin'] });
     const q = url.searchParams.get('q') ?? '';
     const results = lookupRecords(q);
     // Every records query is audited, as CJIS requires.
@@ -577,7 +716,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   });
 
   route('POST', '/api/units/:id/status', ({ req, params, body }) => {
-    const s = sessionFrom(req, { role: ['officer', 'dispatch'] });
+    const s = sessionFrom(req, { role: ['officer', 'dispatch', 'admin'] });
     const unitId = params.id === 'me' ? s.unitId : params.id;
     const unit = units.get(unitId);
     if (!unit) throw new HttpError(404, 'no such unit');
@@ -647,6 +786,222 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   route('GET', '/api/ledger/verify', () => ledger.verify());
   route('GET', '/api/ledger/key', () => ({ alg: 'Ed25519', publicJwk: { kty: 'OKP', crv: 'Ed25519', x: keystore.ledger.publicJwk.x }, head: ledger.head() }));
 
+  // ---------- main admin: oversight of the whole CO-SYNE system ----------
+  route('POST', '/api/admin/login', ({ req, body }) => {
+    if (!adminToken) throw new HttpError(403, 'admin console is disabled: set ADMIN_TOKEN on the server');
+    const ip = clientIp(req);
+    const f = loginFailures.get(ip);
+    if (f && Date.now() - f.since > 15 * 60_000) loginFailures.delete(ip);
+    if ((loginFailures.get(ip)?.count ?? 0) >= 10) throw new HttpError(429, 'too many failed sign-ins; try again in 15 minutes');
+    if (!sameSecret(body.token, adminToken)) {
+      const cur = loginFailures.get(ip) ?? { count: 0, since: Date.now() };
+      cur.count++;
+      loginFailures.set(ip, cur);
+      ledger.append('admin_sign_in_failed', { ip }, 'admin');
+      throw new HttpError(403, 'invalid admin access code');
+    }
+    loginFailures.delete(ip);
+    const name = String(body.name ?? '').trim().slice(0, 60) || 'Administrator';
+    const token = newSession({ role: 'admin', label: `Admin · ${name}`, profile: { name }, since: new Date().toISOString() });
+    ledger.append('admin_signed_in', { name, ip }, 'admin');
+    return { token, name };
+  });
+  route('POST', '/api/admin/logout', ({ req }) => {
+    const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+    if (sessions.get(token)?.role === 'admin') sessions.delete(token);
+    return { ok: true };
+  });
+
+  const adminFrom = (req) => sessionFrom(req, { role: 'admin' });
+  const onlineCredentialIds = () => new Set([...clients].map((c) => c.session?.credential?.id).filter(Boolean));
+
+  function credentialRow(r, online) {
+    const c = r.credential;
+    const check = identity.verifyCredential(c, c.type);
+    const rev = identity.revoked.get(c.id);
+    const status = rev ? 'revoked' : Date.parse(c.expiresAt) < Date.now() ? 'expired' : check.ok ? 'valid' : 'invalid';
+    const s = c.subject ?? {};
+    return {
+      id: c.id, type: c.type, issuer: c.issuer, issuerName: c.issuerName, name: s.name, badge: s.badge ?? null, unit: s.unit ?? null,
+      plate: s.vehicle?.plate ?? null, licenseNumber: s.licenseNumber ?? null, issuedAt: c.issuedAt, expiresAt: c.expiresAt,
+      status, problem: check.ok ? null : check.reason, revoked: rev ?? null, source: r.source, stickerId: r.stickerId ?? null,
+      firstSeen: r.firstSeen, lastSeen: r.lastSeen, online: online.has(c.id),
+    };
+  }
+
+  function securityWarnings() {
+    const w = [];
+    if (demoEnabled) w.push({ level: 'warn', text: 'Demo mode is on (COSYNE_DEMO). /api/samples publishes sample identities with their private keys. Turn it off before real people enroll.' });
+    if (!env.ADMIN_TOKEN) w.push({ level: 'warn', text: 'ADMIN_TOKEN is not set; the built-in demo admin code is in use.' });
+    if (!env.DISPATCH_TOKEN) w.push({ level: 'warn', text: 'DISPATCH_TOKEN is not set; the built-in demo dispatch code is in use.' });
+    if (!env.OFFICER_ENROLL_CODE) w.push({ level: 'warn', text: 'OFFICER_ENROLL_CODE is not set; anyone with the demo code can enroll an officer.' });
+    if (!(env.TURN_URLS && env.TURN_SECRET)) w.push({ level: 'info', text: 'No TURN relay is configured. Video uses STUN only and can fail between strict or cellular networks.' });
+    if (!dataDir) w.push({ level: 'warn', text: 'No data directory: the ledger and registry are kept in memory only.' });
+    if (!aiClassify) w.push({ level: 'info', text: 'AI routing is off. Calls are triaged by the rules engine only (set ANTHROPIC_API_KEY to enable the Claude second pass).' });
+    return w;
+  }
+
+  route('GET', '/api/admin/overview', ({ req }) => {
+    adminFrom(req);
+    const net = networkState();
+    const byRole = (r) => net.devices.filter((d) => d.role === r).length;
+    const unitsByStatus = {};
+    for (const u of units.values()) unitsByStatus[u.status] = (unitsByStatus[u.status] ?? 0) + 1;
+    const online = onlineCredentialIds();
+    const creds = [...credentials.values()].map((r) => credentialRow(r, online));
+    const mem = process.memoryUsage();
+    const allStops = [...stops.values()];
+    const allAlerts = [...alerts.values()];
+    const allCitations = [...citations.values()];
+    return {
+      system: {
+        product: 'CO-SYNE Interface', version: PKG.version, commit: gitCommit(), node: process.version, startedAt,
+        uptimeSec: Math.round(process.uptime()), memoryMb: Math.round(mem.rss / 1048576), heapMb: Math.round(mem.heapUsed / 1048576),
+        publicUrl: env.PUBLIC_URL ?? null, pilot: env.COSYNE_PILOT ?? 'Tulsa Police Department pilot', region: REGION.name,
+        demo: demoEnabled, aiRouting: Boolean(aiClassify), turn: Boolean(env.TURN_URLS && env.TURN_SECRET), persistent: Boolean(dataDir),
+      },
+      counts: {
+        devices: { driver: byRole('driver'), officer: byRole('officer'), dispatch: byRole('dispatch'), total: net.devices.length },
+        adminSessions: [...sessions.values()].filter((s) => s.role === 'admin').length,
+        stops: { live: allStops.filter((s) => !['ended', 'failed'].includes(s.status)).length, failed: allStops.filter((s) => s.status === 'failed').length, total: allStops.length },
+        alerts: { open: allAlerts.filter((a) => !['resolved', 'cancelled'].includes(a.status)).length, p1: allAlerts.filter((a) => a.triage?.priority === 1 && !['resolved', 'cancelled'].includes(a.status)).length, total: allAlerts.length },
+        citations: { citations: allCitations.filter((c) => c.type === 'citation').length, warnings: allCitations.filter((c) => c.type === 'warning').length, finesIssued: allCitations.reduce((n, c) => n + (c.totalFine ?? 0), 0), paid: allCitations.filter((c) => c.status === 'paid').length },
+        reports: reports.size,
+        units: { total: units.size, byStatus: unitsByStatus },
+        credentials: { driver: creds.filter((c) => c.type === 'driver').length, officer: creds.filter((c) => c.type === 'officer').length, revoked: creds.filter((c) => c.status === 'revoked').length, stickers: stickers.size },
+      },
+      ledger: { ...ledger.verify(), entries: ledger.entries.length },
+      modules: MODULES.map((m) => ({ id: m.id, name: m.name, online: byRole(m.id) })),
+      issuers: identity.trustRegistry(),
+      centers: CENTERS,
+      notices: notices.slice(-20).reverse(),
+      warnings: securityWarnings(),
+    };
+  });
+
+  route('GET', '/api/admin/devices', ({ req }) => { adminFrom(req); return networkState(); });
+  route('POST', '/api/admin/devices/:peerId/disconnect', ({ req, params }) => {
+    const s = adminFrom(req);
+    const c = [...clients].find((x) => x.id === params.peerId);
+    if (!c) throw new HttpError(404, 'device is not connected');
+    // Ends the session; a device with a valid credential can sign in again.
+    // Revoke the credential to keep it off the network.
+    for (const [token, sess] of sessions) if (sess === c.session) sessions.delete(token);
+    send(c.ws, { t: 'notice', level: 'warn', text: 'The CO-SYNE administrator reset this device\'s connection.', at: new Date().toISOString() });
+    ledger.append('admin_device_disconnected', { peerId: c.id, role: c.session?.role ?? null, name: c.session?.profile?.name ?? c.session?.label ?? null, credentialId: c.session?.credential?.id ?? null, by: s.profile.name }, 'admin');
+    c.ws.close(4001, 'reset by administrator');
+    return { ok: true };
+  });
+
+  route('GET', '/api/admin/credentials', ({ req }) => {
+    adminFrom(req);
+    const online = onlineCredentialIds();
+    return { credentials: [...credentials.values()].map((r) => credentialRow(r, online)).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)) };
+  });
+  route('POST', '/api/admin/credentials/:id/revoke', ({ req, params, body }) => {
+    const s = adminFrom(req);
+    if (!credentials.has(params.id)) throw new HttpError(404, 'no such credential');
+    revokeCredential(params.id, String(body.reason ?? 'revoked by administrator').slice(0, 200), `admin:${s.profile.name}`);
+    return { ok: true };
+  });
+  route('POST', '/api/admin/credentials/:id/reinstate', ({ req, params }) => {
+    const s = adminFrom(req);
+    if (!identity.revoked.has(params.id)) throw new HttpError(409, 'credential is not revoked');
+    identity.revoked.delete(params.id);
+    ledger.append('credential_reinstated', { credentialId: params.id, by: `admin:${s.profile.name}` }, params.id);
+    saveRegistry();
+    return { ok: true };
+  });
+
+  // System-wide notices: shown as a banner in every app in the audience.
+  route('POST', '/api/admin/broadcast', ({ req, body }) => {
+    const s = adminFrom(req);
+    const text = String(body.text ?? '').trim().slice(0, 500);
+    if (!text) throw new HttpError(400, 'text required');
+    const level = NOTICE_LEVELS.includes(body.level) ? body.level : 'info';
+    const audience = AUDIENCES.includes(body.audience) ? body.audience : 'all';
+    const notice = { id: randomId('ntc', 6), text, level, audience, pinned: Boolean(body.pinned), at: new Date().toISOString(), by: s.profile.name };
+    notices.push(notice);
+    if (notices.length > 100) notices.shift();
+    const targets = clientsWhere((c) => audience === 'all' || c.session.role === audience);
+    for (const c of targets) send(c.ws, { t: 'notice', ...notice });
+    ledger.append('admin_broadcast', { noticeId: notice.id, text, level, audience, pinned: notice.pinned, delivered: targets.length, by: s.profile.name }, 'admin');
+    return { notice, delivered: targets.length };
+  });
+  route('POST', '/api/admin/broadcast/:id/unpin', ({ req, params }) => {
+    adminFrom(req);
+    const n = notices.find((x) => x.id === params.id);
+    if (!n) throw new HttpError(404, 'no such notice');
+    n.pinned = false;
+    return n;
+  });
+
+  route('GET', '/api/admin/settings', ({ req }) => {
+    adminFrom(req);
+    const set = (k) => Boolean(env[k]);
+    return {
+      settings: [
+        { key: 'PUBLIC_URL', value: env.PUBLIC_URL ?? null, note: 'Public base URL, used in sticker QR codes and app launchers' },
+        { key: 'HOST / PORT', value: `${env.HOST ?? '0.0.0.0'}:${env.PORT ?? 3000}`, note: 'Listen address (behind nginx)' },
+        { key: 'COSYNE_DEMO', value: demoEnabled ? 'on' : 'off', note: 'Sample Tulsa identities and the /api/samples endpoint' },
+        { key: 'COSYNE_PILOT', value: env.COSYNE_PILOT ?? 'Tulsa Police Department pilot', note: 'Pilot name shown in the apps' },
+        { key: 'ADMIN_TOKEN', value: set('ADMIN_TOKEN') ? 'set' : demoEnabled ? 'demo default' : 'not set (admin disabled)', secret: true, note: 'Main admin console access code' },
+        { key: 'DISPATCH_TOKEN', value: set('DISPATCH_TOKEN') ? 'set' : 'demo default', secret: true, note: 'Dispatch console access code' },
+        { key: 'OFFICER_ENROLL_CODE', value: set('OFFICER_ENROLL_CODE') ? 'set' : 'demo default', secret: true, note: 'Agency enrollment code for officer credentials' },
+        { key: 'TURN_URLS / TURN_SECRET', value: set('TURN_URLS') && set('TURN_SECRET') ? env.TURN_URLS : 'not set', note: 'TURN relay for video across NAT and cellular' },
+        { key: 'ICE_SERVERS', value: env.ICE_SERVERS ? 'custom' : 'Google STUN', note: 'Extra WebRTC ICE servers (JSON)' },
+        { key: 'ANTHROPIC_API_KEY', value: aiClassify ? 'set (AI routing on)' : 'not set', secret: true, note: 'Claude second-pass triage' },
+      ],
+      dataDir: dataDir ?? null,
+    };
+  });
+
+  route('GET', '/api/admin/ledger/export', ({ req }) => {
+    const s = adminFrom(req);
+    ledger.append('ledger_exported', { entries: ledger.entries.length, by: s.profile.name }, 'admin');
+    return { raw: { type: 'application/x-ndjson', filename: `cosyne-ledger-${new Date().toISOString().slice(0, 10)}.jsonl`, body: ledger.entries.map((e) => JSON.stringify(e)).join('\n') + '\n' } };
+  });
+
+  // ---------- modules: install and download the three apps ----------
+  route('GET', '/api/modules', ({ req }) => {
+    const base = publicBase(req);
+    return {
+      base,
+      modules: MODULES.map((m) => ({
+        id: m.id, name: m.name, device: m.device, summary: m.summary, url: `${base}/${m.id}/`, installUrl: `${base}/${m.id}/?install=1`,
+        icon: `icons/${m.id}.svg`, qr: `downloads/qr.svg?app=${m.id}`,
+        downloads: [
+          { label: 'Windows app launcher', platform: 'windows', file: `downloads/${m.file}.cmd` },
+          ...(m.kiosk ? [{ label: 'Windows kiosk launcher (full screen)', platform: 'windows', file: `downloads/${m.file}-Kiosk.cmd` }] : []),
+          { label: 'macOS / Linux launcher', platform: 'unix', file: `downloads/${m.file}.sh` },
+        ],
+      })),
+      bundle: [
+        { label: 'All three apps (Windows)', platform: 'windows', file: 'downloads/CO-SYNE-Network.cmd' },
+        { label: 'All three apps (macOS / Linux)', platform: 'unix', file: 'downloads/CO-SYNE-Network.sh' },
+      ],
+    };
+  });
+
+  async function serveDownload(req, res, name) {
+    const base = publicBase(req);
+    if (name === 'qr.svg') {
+      const app = new URL(req.url, 'http://localhost').searchParams.get('app');
+      if (!MODULES.some((m) => m.id === app)) { res.writeHead(404).end(); return; }
+      const svg = await QRCode.toString(`${base}/${app}/?install=1`, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#0b1b2b', light: '#ffffff' } });
+      res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-cache' }).end(svg);
+      return;
+    }
+    const m = name.match(/^(.+?)(-Kiosk)?\.(cmd|sh)$/);
+    const mods = m && (m[1] === 'CO-SYNE-Network' ? MODULES : MODULES.filter((x) => x.file === m[1]));
+    if (!mods?.length || (m[2] && !(mods.length === 1 && mods[0].kiosk))) { res.writeHead(404).end('not found'); return; }
+    const body = m[3] === 'cmd' ? windowsLauncher(base, mods, { kiosk: Boolean(m[2]) }) : unixLauncher(base, mods);
+    res.writeHead(200, {
+      'content-type': m[3] === 'cmd' ? 'application/octet-stream' : 'text/x-shellscript',
+      'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-cache',
+    }).end(body);
+  }
+
   async function handleApi(req, res, url) {
     const match = routes.find((r) => r.method === req.method && r.re.test(url.pathname));
     if (!match) throw new HttpError(404, 'not found');
@@ -699,9 +1054,15 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-cache' }).end(svg);
       return;
     }
+    const download = url.pathname.match(/^\/downloads\/([\w.-]+\.(?:cmd|sh|svg))$/);
+    if (download) return serveDownload(req, res, download[1]);
     if (!url.pathname.startsWith('/api/')) return serveStatic(res, url.pathname);
     try {
       const out = await handleApi(req, res, url);
+      if (out?.raw) {
+        res.writeHead(200, { 'content-type': out.raw.type, 'content-disposition': `attachment; filename="${out.raw.filename}"` }).end(out.raw.body);
+        return;
+      }
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(out));
     } catch (err) {
       const status = err.status ?? 500;
@@ -832,7 +1193,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   function onHello(c, msg) {
     let data;
     if (msg.role === 'dispatch') {
-      if (msg.token !== dispatchToken) throw new Error('invalid dispatch token');
+      if (!sameSecret(msg.token, dispatchToken)) throw new Error('invalid dispatch token');
       const name = String(msg.name ?? '').trim().slice(0, 60);
       data = { role: 'dispatch', label: name ? `Dispatch · ${name}` : 'Dispatch', profile: { name: name || 'Dispatcher', agency: CENTERS[0].name } };
     } else if (msg.role === 'officer' || msg.role === 'driver') {
@@ -841,6 +1202,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
       });
       if (!result.ok) throw new Error(`sign-in failed: ${result.reason}`);
       const profile = publicProfile(msg.credential);
+      if (!credentials.has(msg.credential.id)) { trackCredential(msg.credential, 'presented'); saveRegistry(); } else trackCredential(msg.credential);
       data = { role: msg.role, credential: msg.credential, profile, label: profile.name };
       if (msg.role === 'driver') data.plate = msg.credential.subject.vehicle?.plate;
       if (msg.role === 'officer') {
@@ -867,6 +1229,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     c.session = sessions.get(token);
     if (c.session !== data && data.unitId) c.session.unitId = data.unitId;
     send(c.ws, { t: 'hello_ok', token, role: data.role, profile: data.profile ?? null, unitId: data.unitId ?? null, peerId: c.id });
+    for (const n of notices) if (n.pinned && (n.audience === 'all' || n.audience === data.role)) send(c.ws, { t: 'notice', ...n });
 
     if (data.role === 'dispatch') send(c.ws, { t: 'state', ...dispatchState() });
     if (data.role === 'driver') {

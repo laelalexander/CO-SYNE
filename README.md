@@ -28,6 +28,15 @@ CO-SYNE runs as three separate applications that talk over the CO-SYNE network:
 | **Officer terminal** | `/officer/` | A frameless desktop "operating system" for the patrol terminal: lock screen, desktop, taskbar and start menu, with Scanner, Traffic stop console, Map, Records lookup, CAD, Messages, Citations, Reports, Evidence, Video and Settings apps. |
 | **Dispatch** | `/dispatch/` | The network operations center: live map, stop and call queue, unit status, drop-in video, records, citations and reports, connected devices, the signed evidence ledger, and the credential trust registry. |
 
+Two more pages oversee and distribute them:
+
+| Page | Path | What it is |
+|---|---|---|
+| **Main admin** | `/admin/` | Oversight of the whole system, signed in with `ADMIN_TOKEN`: system health and security checklist, every connected device (reset a session), the credential registry (search, revoke, reinstate, print stickers), agencies, dispatch centers and units, all stops, calls, tickets and reports, the evidence ledger (verify, inspect, export JSONL), system notices broadcast as a banner to chosen apps, read-only settings, and the module install and download section. Works on phones. Every admin sign-in and action is written to the ledger. |
+| **Downloads** | `/downloads/` | Public install page for the three modules: install buttons, QR codes that open a module on a phone with an install prompt (`?install=1`), and generated Windows (`.cmd`, plus a kiosk launcher for the officer terminal) and macOS/Linux (`.sh`) launchers that open each module as its own app window against `PUBLIC_URL`. |
+
+Enrolled credentials, their stickers, and revocations are stored in `data/registry.json`, so they survive a server restart.
+
 Pilot data uses Tulsa geography (Tulsa 911 and TCSO North), Tulsa PD, Tulsa County Sheriff's Office and Service Oklahoma as credential issuers, and Oklahoma Title 47 violations.
 
 ## Run it on one computer
@@ -73,6 +82,7 @@ It installs Node 22 and coturn if missing, copies the app to `/opt/cosyne`, writ
 |---|---|---|
 | `PORT` / `HOST` | `3000` | Listen address |
 | `PUBLIC_URL` | request origin | Public base URL, e.g. `https://iobeacons.com/cosyne`; used in sticker QR codes |
+| `ADMIN_TOKEN` | `admin-demo` in demo mode, otherwise unset (admin disabled) | Main admin console access code |
 | `DISPATCH_TOKEN` | `dispatch-demo` | Dispatch console access code |
 | `OFFICER_ENROLL_CODE` | `officer-demo` | Agency enrollment code for officer credentials |
 | `TURN_URLS` / `TURN_SECRET` | unset | TURN relay (coturn `use-auth-secret`); clients get 12-hour credentials |
@@ -139,7 +149,12 @@ BASE_URL=https://iobeacons.com/cosyne npm run test:browser   # against a deploym
 | `POST /api/stops/:id/citations` | officer (device-signed) | Issue a warning or citation |
 | `POST /api/citations/:id/ack` · `/pay` · `/contest` | driver | Signed acknowledgement, simulated payment, contest |
 | `POST /api/stops/:id/file-report` · `GET /api/reports/:id` | officer · officer, dispatch | File the sealed incident report and close the stop |
-| `POST /api/credentials/:id/revoke` | dispatch | Revoke a credential and end its sessions |
+| `POST /api/credentials/:id/revoke` | dispatch, admin | Revoke a credential, end its sessions, and disconnect its devices |
+| `POST /api/admin/login` | anyone with `ADMIN_TOKEN` | Admin session (12 hours; 10 failed attempts lock an address out for 15 minutes) |
+| `GET /api/admin/overview` · `/devices` · `/credentials` · `/settings` · `/ledger/export` | admin | System health and counts, connected devices, credential registry, configuration, full ledger download |
+| `POST /api/admin/credentials/:id/revoke` · `/reinstate` · `/api/admin/devices/:peerId/disconnect` | admin | Credential and device control |
+| `POST /api/admin/broadcast` · `/broadcast/:id/unpin` | admin | System notice to all apps or one role; pinned notices also reach later sign-ins |
+| `GET /api/modules` · `/downloads/<module>.cmd` · `.sh` · `/downloads/qr.svg?app=` | anyone | Module list, desktop launchers, install QR codes |
 | `POST /api/evidence` | any signed-in party | Anchor a recording's SHA-256 to an alert or stop |
 | `GET /api/ledger` · `/verify` · `/key` | signed in · anyone · anyone | Read, verify, and get the ledger key |
 

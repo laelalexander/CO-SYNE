@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cosyne-root" content="../">
+  <meta name="theme-color" content="#0e1013">
+  <title>Get the CO-SYNE apps</title>
+  <link rel="icon" href="../icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../lib/theme.css">
+  <style>
+    body { background: radial-gradient(1200px 700px at 20% 0%, #22262c 0%, #0e1013 65%); min-height: 100%; }
+    :root[data-theme="day"] body { background: var(--bg); }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 40px 16px 60px; }
+    .hero { display: flex; gap: 14px; align-items: center; margin-bottom: 6px; }
+    .hero h1 { font-size: 1.8rem; letter-spacing: -.02em; }
+    .lead { color: var(--muted); max-width: 720px; margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero"><img src="../icon.svg" width="50" height="50" alt=""><div><h1>Get the CO-SYNE apps</h1><div class="muted" id="pilot">Driver to Emergency Services</div></div></div>
+    <p class="lead">Install each module on the device it belongs on: the Driver app on a phone, the Officer Terminal in the patrol vehicle, and Dispatch in the communications center.</p>
+    <div id="mods"><p class="muted">Loading modules…</p></div>
+    <p class="small muted" style="margin-top:22px"><a href="../">CO-SYNE Network home</a></p>
+  </div>
+  <script type="module">
+    import { api } from '../lib/session.js';
+    import { modulesHtml, bindModules } from '../lib/modules.js';
+    import { esc } from '../lib/ui.js';
+    const el = document.getElementById('mods');
+    try {
+      const [mods, cfg] = await Promise.all([api('GET', '/api/modules'), api('GET', '/api/config')]);
+      document.getElementById('pilot').textContent = `${cfg.region.name} · ${cfg.pilot}`;
+      el.innerHTML = modulesHtml(mods);
+      bindModules(el);
+    } catch (e) { el.innerHTML = `<div class="notice bad">Cannot reach the CO-SYNE network: ${esc(e.message)}</div>`; }
+  </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+/* CO-SYNE Main Admin: system administration console. */
+.login { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: radial-gradient(1100px 700px at 30% 10%, #22262c 0%, #0e1013 60%); }
+:root[data-theme="day"] .login { background: var(--bg); }
+.login-card { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+
+.app { position: fixed; inset: 0; display: grid; grid-template-columns: 228px 1fr; grid-template-rows: 54px 1fr; }
+.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 14px; background: var(--bg-2); border-bottom: 1px solid var(--line); min-width: 0; }
+.brand { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.brand b { display: block; font-size: .98rem; white-space: nowrap; }
+.brand span { font-size: .75rem; color: var(--muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: .82rem; }
+.menu-btn { display: none; }
+
+.side { background: var(--bg-2); border-right: 1px solid var(--line); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
+.side button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 9px 11px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; font-weight: 550; position: relative; }
+.side button:hover { background: var(--panel-2); color: var(--text); }
+.side button.on { background: var(--panel-3); color: var(--text); }
+.side button.on .ico { color: var(--brand-2); }
+.side .n { margin-left: auto; font-size: .7rem; font-weight: 700; padding: 0 6px; border-radius: 8px; background: var(--danger); color: #fff; }
+.side .n.brand { background: var(--brand); color: #15120a; }
+.side hr { border: 0; border-top: 1px solid var(--line); margin: 8px 4px; }
+
+.main { overflow: auto; min-width: 0; }
+.page { padding: 20px 22px 40px; max-width: 1400px; }
+.page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+.page-head p { margin: 2px 0 0; }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stat b { font-size: 1.6rem; display: block; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.stat span { font-size: .78rem; color: var(--muted); }
+.stat.bad b { color: var(--danger); } .stat.ok b { color: var(--ok); } .stat.warn b { color: var(--warn); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.card h4 { margin-bottom: 8px; }
+.table-wrap { overflow-x: auto; }
+.table-wrap .table { min-width: 640px; }
+.warnings { display: grid; gap: 6px; margin-bottom: 14px; }
+.ev { font-family: var(--mono); font-size: .76rem; display: grid; gap: 2px; }
+.ev div { display: flex; gap: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.ev b { color: var(--text); font-weight: 500; min-width: 170px; }
+.mod-line { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.mod-line:last-child { border-bottom: 0; }
+.bar { height: 8px; border-radius: 4px; background: var(--panel-3); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+pre.json { background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; font: .78rem/1.45 var(--mono); max-height: 60vh; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filters input { width: 240px; }
+.filters select { width: auto; }
+
+/* Phones and small tablets: the menu slides in over the page. */
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; }
+  .menu-btn { display: inline-flex; }
+  .side { position: fixed; z-index: 50; top: 54px; bottom: 0; left: 0; width: 248px; transform: translateX(-100%); transition: transform .18s; box-shadow: var(--shadow); }
+  .app.menu-open .side { transform: none; }
+  .top-right .who { display: none; }
+  .page { padding: 16px; }
+  .filters input { width: 100%; }
+}
+.col-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+@media (max-width: 600px) {
+  .top { gap: 8px; padding: 0 8px; }
+  .top-right .pill { display: none; }
+  .brand img { display: none; }
+}

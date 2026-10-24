@@ -4,6 +4,8 @@
 import { stopChallengeMessage } from '../canonical.js';
 import { signText } from './keys.js';
 import { Socket } from './socket.js';
+import { setupInstall } from './install.js';
+import { showNotice } from './ui.js';
 
 // Apps live one level below the server root (/driver/, /officer/, /dispatch/).
 export const ROOT = new URL(document.querySelector('meta[name="cosyne-root"]')?.content ?? '../', location.href);
@@ -21,6 +23,7 @@ export async function api(method, path, body, token) {
 }
 
 export async function bootstrap() {
+  setupInstall();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(url('/sw.js'), { scope: ROOT.pathname }).catch(() => {});
   const [config, trust] = await Promise.all([api('GET', '/api/config'), api('GET', '/api/trust')]);
   return { config, trust: trust.issuers };
@@ -50,6 +53,7 @@ export function openSession(role, identity, { location } = {}) {
   socket.on((msg) => {
     if (msg.t === 'hello_ok') Object.assign(session, { token: msg.token, profile: msg.profile, unitId: msg.unitId, peerId: msg.peerId, online: true });
     if (msg.t === 'disconnected') session.online = false;
+    if (msg.t === 'notice') showNotice(msg);
     for (const fn of listeners) fn(msg);
   });
   return session;
