@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cosyne-root" content="../">
+  <meta name="theme-color" content="#0e1013">
+  <title>CO-SYNE Dispatch</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../icons/dispatch.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="../lib/theme.css">
+  <link rel="stylesheet" href="dispatch.css">
+  <script src="../vendor/leaflet/leaflet.js"></script>
+</head>
+<body class="dispatch">
+  <section id="login" class="login hidden"></section>
+  <div id="app" class="app hidden">
+    <header class="top">
+      <div class="brand"><img src="../icons/dispatch.svg" width="30" height="30" alt=""><div><b>CO-SYNE Dispatch</b><span id="center-name"></span></div></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="top-right" id="top-right"></div>
+    </header>
+    <nav class="rail" id="rail"></nav>
+    <main class="main" id="main"></main>
+  </div>
+  <script type="module" src="dispatch.js"></script>
+</body>
+</html>

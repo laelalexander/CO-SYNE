@@ -1,0 +1,24 @@
+{
+  "name": "CO-SYNE Interface",
+  "short_name": "CO-SYNE",
+  "description": "Driver to Emergency Services: verified traffic stops, emergency alerts, live video, and tamper-evident evidence.",
+  "id": "/",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#0d141b",
+  "theme_color": "#0e7c86",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Driver", "url": "/?role=driver" },
+    { "name": "Officer", "url": "/?role=officer" },
+    { "name": "Dispatch", "url": "/?role=dispatch" },
+    { "name": "Demo console", "url": "/demo.html" }
+  ]
+}

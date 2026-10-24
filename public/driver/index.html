@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="cosyne-root" content="../">
+  <meta name="theme-color" content="#f2f2f7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>CO-SYNE Driver</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../icons/driver.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../icons/driver-192.png">
+  <link rel="stylesheet" href="../lib/theme.css">
+  <link rel="stylesheet" href="driver.css">
+</head>
+<body class="driver">
+  <div class="stage">
+    <div class="device" id="device">
+      <div class="island" aria-hidden="true"></div>
+      <div class="screen" id="screen">
+        <div class="statusbar" aria-hidden="true"><span id="sb-time">9:41</span><span class="sb-right"><span class="sb-signal"></span><span class="sb-net">5G</span><span class="sb-batt"><i></i></span></span></div>
+        <main id="view" class="view"></main>
+        <nav class="tabbar hidden" id="tabbar"></nav>
+        <div id="overlay-root"></div>
+        <div class="banner-host" id="banners"></div>
+        <div class="home-indicator" aria-hidden="true"></div>
+      </div>
+    </div>
+    <aside class="stage-note">
+      <div class="brandmark"><img src="../icons/driver.svg" width="34" height="34" alt=""><div><b>CO-SYNE Driver</b><span>Driver's phone · <span id="net-state">connecting…</span></span></div></div>
+      <p>This is the driver's mobile app. Install it on a phone from this address, or keep it here as a phone simulator.</p>
+      <p class="tip" id="stage-tip"></p>
+    </aside>
+  </div>
+  <script type="module" src="driver.js"></script>
+</body>
+</html>

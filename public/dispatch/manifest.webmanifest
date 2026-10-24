@@ -1,0 +1,17 @@
+{
+  "id": "cosyne-dispatch",
+  "name": "CO-SYNE Dispatch",
+  "short_name": "CO-SYNE Dispatch",
+  "description": "Network operations and dispatch: every stop, alert, unit, and record on the CO-SYNE network.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#0e1013",
+  "theme_color": "#0e1013",
+  "icons": [
+    { "src": "../icons/dispatch-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/dispatch-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "../icons/dispatch-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cosyne-root" content="../">
+  <meta name="theme-color" content="#0e1013">
+  <title>CO-SYNE Officer Terminal</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../icons/officer.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="../lib/theme.css">
+  <link rel="stylesheet" href="officer.css">
+  <script src="../vendor/leaflet/leaflet.js"></script>
+  <script src="../vendor/jsQR.js"></script>
+</head>
+<body class="officer">
+  <section id="lock" class="lock"></section>
+  <section id="desktop" class="desktop hidden">
+    <div class="wallpaper" aria-hidden="true"><div class="wp-mark"><img src="../icons/officer.svg" alt=""><div><b>CO-SYNE</b><span id="wp-agency"></span></div></div></div>
+    <div class="desk-icons" id="desk-icons"></div>
+    <div class="windows" id="windows"></div>
+    <div class="start hidden" id="start"></div>
+    <div class="tray-pop hidden" id="tray-pop"></div>
+    <footer class="taskbar" id="taskbar">
+      <button class="tb-start" id="tb-start" title="Start"><img src="../icons/officer.svg" alt="" width="26" height="26"></button>
+      <div class="tb-apps" id="tb-apps"></div>
+      <div class="tb-tray" id="tb-tray"></div>
+    </footer>
+  </section>
+  <script type="module" src="officer.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cosyne-root" content="./">
+  <meta name="theme-color" content="#0e1013">
+  <title>CO-SYNE Network</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="lib/theme.css">
+  <style>
+    body { background: radial-gradient(1200px 700px at 20% 0%, #22262c 0%, #0e1013 65%); min-height: 100%; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 20px; }
+    .hero { display: flex; gap: 16px; align-items: center; margin-bottom: 8px; }
+    .hero h1 { font-size: 2rem; letter-spacing: -.02em; }
+    .lead { color: var(--muted); max-width: 720px; font-size: 1.02rem; }
+    .apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 30px 0; }
+    @media (max-width: 860px) { .apps { grid-template-columns: 1fr; } }
+    .app { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .app img { width: 56px; height: 56px; }
+    .app h2 { font-size: 1.2rem; }
+    .app p { color: var(--muted); font-size: .9rem; flex: 1; }
+    .app ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: .85rem; }
+    .foot { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero"><img src="icon.svg" width="54" height="54" alt=""><div><h1>CO-SYNE Network</h1><div class="muted" id="pilot">Driver to Emergency Services</div></div></div>
+    <p class="lead">Three applications on one network. Open each one on its own device (a phone for the driver, the patrol car terminal for the officer, and the communications center for dispatch), or open all three on one computer to demonstrate a stop.</p>
+    <div class="apps">
+      <div class="app"><img src="icons/driver.svg" alt=""><h2>Driver</h2><p>The driver's phone. Verified digital ID, the pull-over alert with the officer's verified identity and reason, video with the officer, tickets, and one-tap emergency.</p>
+        <ul><li>Install on a phone: open this link, then Add to Home Screen</li></ul><a class="btn primary" href="driver/">Open Driver app</a></div>
+      <div class="app"><img src="icons/officer.svg" alt=""><h2>Officer Terminal</h2><p>The patrol vehicle's console. Sticker scanner, stop console with live video, records lookup, map, CAD calls, eCitations, reports, messages, and evidence.</p>
+        <ul><li>Runs full screen as the terminal's operating shell</li></ul><a class="btn primary" href="officer/">Open Officer Terminal</a></div>
+      <div class="app"><img src="icons/dispatch.svg" alt=""><h2>Dispatch</h2><p>The network itself: every stop, call, unit, and device live on the map, drop-in video, assignments, records, citations, reports, and the tamper-evident ledger.</p>
+        <ul><li>Communications center console</li></ul><a class="btn primary" href="dispatch/">Open Dispatch</a></div>
+    </div>
+    <div class="foot"><a class="btn sm" href="demo.html">Side-by-side demo view</a><a class="btn sm" href="sticker.html">Print vehicle stickers</a><span id="status"></span></div>
+  </div>
+  <script type="module">
+    import { api } from './lib/session.js';
+    api('GET', '/api/config').then((c) => { document.getElementById('pilot').textContent = `${c.region.name} · ${c.pilot}`; }).catch(() => {});
+    api('GET', '/api/ledger/verify').then((v) => { document.getElementById('status').innerHTML = `<span class="pill ${v.ok ? 'ok' : 'bad'}"><span class="dot ${v.ok ? 'ok' : 'bad'}"></span> Network online · evidence ledger ${v.ok ? 'intact' : 'BROKEN'}</span>`; }).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  </script>
+</body>
+</html>

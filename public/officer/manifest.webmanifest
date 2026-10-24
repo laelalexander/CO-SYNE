@@ -1,0 +1,17 @@
+{
+  "id": "cosyne-officer",
+  "name": "CO-SYNE Officer Terminal",
+  "short_name": "CO-SYNE MDT",
+  "description": "Patrol terminal for verified traffic stops, records, mapping, and CAD on the CO-SYNE network.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#0e1013",
+  "theme_color": "#0e1013",
+  "icons": [
+    { "src": "../icons/officer-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/officer-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "../icons/officer-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
