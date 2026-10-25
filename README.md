@@ -24,7 +24,7 @@ CO-SYNE runs as three separate applications that talk over the CO-SYNE network:
 
 | App | Path | What it is |
 |---|---|---|
-| **Driver** | `/driver/` | The driver's phone app: wallet ID, vehicle, registration and insurance, SOS, tickets, and the full-screen "You are being pulled over" alert with the verified officer card, a FaceTime-style video call, and text chat. Installable on a phone (Add to Home Screen). |
+| **Driver** | `/driver/` | The driver's phone app: wallet ID, vehicle, registration and insurance, SOS, tickets, and the full-screen "You are being pulled over" alert with the verified officer card, a FaceTime-style video call, and text chat. Installable on a phone (Add to Home Screen). Installed, it behaves like a native app: Web Push pull-over alerts with Accept video and Text only actions while the app is closed or the phone is locked (iPhone needs iOS 16.4+ and the Home Screen app), citation and stop-ended notifications, vibration, the screen kept awake during a stop or call, an unpaid-ticket count on the app icon, home-screen shortcuts, and the wallet ID, vehicle and sticker available offline. |
 | **Officer terminal** | `/officer/` | A frameless desktop "operating system" for the patrol terminal: lock screen, desktop, taskbar and start menu, with Scanner, Traffic stop console, Map, Records lookup, CAD, Messages, Citations, Reports, Evidence, Video and Settings apps. |
 | **Dispatch** | `/dispatch/` | The network operations center: live map, stop and call queue, unit status, drop-in video, records, citations and reports, connected devices, the signed evidence ledger, and the credential trust registry. |
 
@@ -87,6 +87,7 @@ It installs Node 22 and coturn if missing, copies the app to `/opt/cosyne`, writ
 | `OFFICER_ENROLL_CODE` | `officer-demo` | Agency enrollment code for officer credentials |
 | `TURN_URLS` / `TURN_SECRET` | unset | TURN relay (coturn `use-auth-secret`); clients get 12-hour credentials |
 | `ICE_SERVERS` | Google STUN | JSON array of extra WebRTC ICE servers |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | generated into `data/push.json` | Web Push keys for driver alerts; set them to keep the same keys across servers |
 | `TLS_CERT` / `TLS_KEY` | unset | Serve HTTPS directly, without a reverse proxy |
 | `ANTHROPIC_API_KEY` | unset | Turns on Claude second-pass triage (`claude-opus-5-5`, low effort, structured JSON output, server-side refusal fallback) |
 | `COSYNE_AI_ROUTING` | auto | `off` to disable AI triage, `claude` to force it on with other Anthropic credentials |
@@ -155,6 +156,7 @@ BASE_URL=https://iobeacons.com/cosyne npm run test:browser   # against a deploym
 | `POST /api/admin/credentials/:id/revoke` · `/reinstate` · `/api/admin/devices/:peerId/disconnect` | admin | Credential and device control |
 | `POST /api/admin/broadcast` · `/broadcast/:id/unpin` | admin | System notice to all apps or one role; pinned notices also reach later sign-ins |
 | `GET /api/modules` · `/downloads/<module>.cmd` · `.sh` · `/downloads/qr.svg?app=` | anyone | Module list, desktop launchers, install QR codes |
+| `GET /api/push/key` · `POST /api/push/subscribe` · `/unsubscribe` · `/test` | anyone · driver | VAPID public key, register or remove this phone for alerts, send a test alert |
 | `POST /api/evidence` | any signed-in party | Anchor a recording's SHA-256 to an alert or stop |
 | `GET /api/ledger` · `/verify` · `/key` | signed in · anyone · anyone | Read, verify, and get the ledger key |
 

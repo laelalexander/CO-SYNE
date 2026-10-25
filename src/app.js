@@ -9,6 +9,7 @@ import { canonicalize } from '../public/canonical.js';
 import { nonce as makeNonce, randomId, sha256, verifyText } from './crypto.js';
 import { IdentityService, loadKeystore, publicProfile } from './identity.js';
 import { Ledger } from './ledger.js';
+import { PushService } from './push.js';
 import { aiRoutingEnabled, classifyWithClaude, classifyWithRules, haversineKm, selectCenter, selectUnits } from './routing.js';
 import { BEATS, CENTERS, REGION, seedUnits } from './seed.js';
 import { loadSamples, officerIssuer, recordsCheck, STOP_REASONS } from './samples.js';
@@ -118,7 +119,7 @@ class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
-export function createApp({ dataDir = path.join(here, '..', 'data'), env = process.env, simulate = true, classifyAI } = {}) {
+export function createApp({ dataDir = path.join(here, '..', 'data'), env = process.env, simulate = true, classifyAI, pushSender } = {}) {
   const keystore = loadKeystore(dataDir ? path.join(dataDir, 'keys.json') : null);
   const identity = new IdentityService({ keystore });
   const ledger = new Ledger({ file: dataDir ? path.join(dataDir, 'ledger.jsonl') : null, signer: keystore.ledger });
@@ -163,6 +164,15 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     const added = { credential, source, stickerId, firstSeen: now, lastSeen: now };
     credentials.set(credential.id, added);
     return added;
+  }
+
+  const push = new PushService({ dataDir, env, sender: pushSender });
+  // Every driver credential for a plate: the phones to alert about a stop.
+  const driverCredentialIds = (plate) => [...credentials.values()]
+    .filter((r) => r.credential.type === 'driver' && normalize(r.credential.subject?.vehicle?.plate) === plate)
+    .map((r) => r.credential.id);
+  function pushToDriver(stop, payload) {
+    push.send(driverCredentialIds(stop.plate), { stopId: stop.id, url: `driver/?stop=${encodeURIComponent(stop.id)}`, ...payload }).catch(() => {});
   }
 
   function registerSticker(stickerId, credential) {
@@ -443,14 +453,24 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
         const unit = units.get(stop.unitId);
         if (unit?.stopId === stop.id) { unit.status = 'available'; delete unit.stopId; }
         notifyStop(stop);
+        pushToDriver(stop, { kind: 'danger', urgent: true, tag: `stop-${stop.id}`, title: 'Warning: officer could not be verified', body: 'Keep your doors locked, turn on your hazards and drive to a well-lit public place. Tulsa 911 has been alerted.' });
       }
       throw new HttpError(422, result.reason);
     }
+    const firstOfficerProof = role === 'officer' && !stop.proofs.officer;
     stop.proofs[role] = true;
     if (role === 'driver') stop.driverProfile = session.profile;
     stop.status = stop.proofs.driver ? 'verified' : 'awaiting_driver';
     if (stop.status === 'verified') ledger.append('stop_mutually_verified', { officerCredentialId: stop.officerCredential.id, driverCredentialId: session.credential.id }, stop.id);
     notifyStop(stop);
+    if (firstOfficerProof) {
+      const o = stop.officerProfile ?? {};
+      pushToDriver(stop, {
+        kind: 'pullover', urgent: true, tag: `stop-${stop.id}`, actions: stop.call ? ['accept', 'text'] : [],
+        title: "You're being pulled over",
+        body: `${o.name ?? 'An officer'} · ${o.agency ?? ''}${o.badge ? ` · badge ${o.badge}` : ''}. Verified. Reason: ${stop.reason ?? 'not stated'}.${stop.call ? ' Video call requested.' : ''}`,
+      });
+    }
     return stop;
   }
 
@@ -463,6 +483,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     if (unit?.stopId === stop.id) { unit.status = 'available'; delete unit.stopId; }
     ledger.append('stop_ended', { outcome: stop.outcome, by: session.role }, stop.id);
     notifyStop(stop);
+    if (stop.proofs.officer) pushToDriver(stop, { kind: 'ended', tag: `stop-${stop.id}`, title: 'Traffic stop complete', body: `${stop.officerProfile?.name ?? 'The officer'} closed the stop. You're free to go when it's safe.` });
     return stop;
   }
 
@@ -602,6 +623,11 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     stop.citationIds.push(citation.id);
     const entry = ledger.append('citation_issued', { citationId: citation.id, type, violations: violationCodes, totalFine: citation.totalFine, hash: citation.hash }, stop.id);
     citation.ledgerSeq = entry.seq;
+    pushToDriver(stop, {
+      kind: 'citation', tag: `cit-${citation.id}`, url: 'driver/?tab=tickets',
+      title: type === 'warning' ? 'Written warning received' : 'Traffic citation received',
+      body: `${citation.id} from ${s.profile.name}${type === 'citation' ? ` · ${citation.totalFine ? `$${citation.totalFine}` : ''}` : ''}. Tap to review.`,
+    });
     notifyStop(stop);
     return citation;
   });
@@ -786,6 +812,24 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   route('GET', '/api/ledger/verify', () => ledger.verify());
   route('GET', '/api/ledger/key', () => ({ alg: 'Ed25519', publicJwk: { kty: 'OKP', crv: 'Ed25519', x: keystore.ledger.publicJwk.x }, head: ledger.head() }));
 
+  // ---------- Web Push (driver phones) ----------
+  route('GET', '/api/push/key', () => ({ publicKey: push.vapid.publicKey }));
+  route('POST', '/api/push/subscribe', ({ req, body }) => {
+    const s = sessionFrom(req, { role: 'driver' });
+    try { push.subscribe(s.credential.id, body.subscription); } catch (err) { throw new HttpError(400, err.message); }
+    return { ok: true };
+  });
+  route('POST', '/api/push/test', async ({ req }) => {
+    const s = sessionFrom(req, { role: 'driver' });
+    const delivered = await push.send(s.credential.id, { kind: 'notice', tag: 'cosyne-test', url: 'driver/', title: 'CO-SYNE alerts are on', body: "This is how a pull-over alert reaches you when the app is closed." });
+    return { delivered };
+  });
+  route('POST', '/api/push/unsubscribe', ({ req, body }) => {
+    sessionFrom(req, { role: 'driver' });
+    push.unsubscribe(String(body.endpoint ?? ''));
+    return { ok: true };
+  });
+
   // ---------- main admin: oversight of the whole CO-SYNE system ----------
   route('POST', '/api/admin/login', ({ req, body }) => {
     if (!adminToken) throw new HttpError(403, 'admin console is disabled: set ADMIN_TOKEN on the server');
@@ -863,6 +907,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
       counts: {
         devices: { driver: byRole('driver'), officer: byRole('officer'), dispatch: byRole('dispatch'), total: net.devices.length },
         adminSessions: [...sessions.values()].filter((s) => s.role === 'admin').length,
+        push: { ...push.count(), sent: push.sent, failed: push.failed },
         stops: { live: allStops.filter((s) => !['ended', 'failed'].includes(s.status)).length, failed: allStops.filter((s) => s.status === 'failed').length, total: allStops.length },
         alerts: { open: allAlerts.filter((a) => !['resolved', 'cancelled'].includes(a.status)).length, p1: allAlerts.filter((a) => a.triage?.priority === 1 && !['resolved', 'cancelled'].includes(a.status)).length, total: allAlerts.length },
         citations: { citations: allCitations.filter((c) => c.type === 'citation').length, warnings: allCitations.filter((c) => c.type === 'warning').length, finesIssued: allCitations.reduce((n, c) => n + (c.totalFine ?? 0), 0), paid: allCitations.filter((c) => c.status === 'paid').length },
@@ -925,6 +970,8 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     if (notices.length > 100) notices.shift();
     const targets = clientsWhere((c) => audience === 'all' || c.session.role === audience);
     for (const c of targets) send(c.ws, { t: 'notice', ...notice });
+    // Driver phones that are closed get it as a notification.
+    if (audience === 'all' || audience === 'driver') push.sendAll({ kind: 'notice', urgent: level === 'critical', tag: notice.id, url: 'driver/', title: level === 'critical' ? 'Critical CO-SYNE notice' : 'CO-SYNE notice', body: text }).catch(() => {});
     ledger.append('admin_broadcast', { noticeId: notice.id, text, level, audience, pinned: notice.pinned, delivered: targets.length, by: s.profile.name }, 'admin');
     return { notice, delivered: targets.length };
   });
@@ -1283,7 +1330,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   }
 
   return {
-    server, secure: Boolean(tls), ledger, identity, units, alerts, stops, stickers, citations, reports, samples,
+    server, secure: Boolean(tls), ledger, identity, units, alerts, stops, stickers, citations, reports, samples, push,
     listen(port = 0, host) {
       return new Promise((resolve) => server.listen(port, host, () => resolve(server.address().port)));
     },

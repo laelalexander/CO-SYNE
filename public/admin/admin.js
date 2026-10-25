@@ -142,6 +142,7 @@ const PAGES = {
           <dt>Video relay</dt><dd>${o.system.turn ? 'TURN configured' : 'STUN only'}</dd>
           <dt>Call routing</dt><dd>${o.system.aiRouting ? 'Rules + Claude second pass' : 'Rules engine'}</dd>
           <dt>Demo data</dt><dd>${o.system.demo ? '<span class="pill warn">on</span>' : '<span class="pill ok">off</span>'}</dd>
+          <dt>Phone alerts</dt><dd>${c.push.subscriptions} phone${c.push.subscriptions === 1 ? '' : 's'} registered · ${c.push.sent} sent${c.push.failed ? `, ${c.push.failed} failed` : ''}</dd>
           <dt>Admin sessions</dt><dd>${c.adminSessions}</dd></dl></div>
         <div class="card"><h4>Modules</h4>${o.modules.map((m) => `<div class="mod-line"><img src="${url(`icons/${m.id}.svg`)}" width="28" height="28" alt=""><span class="grow"><b>${esc(m.name)}</b></span><span class="pill ${m.online ? 'ok' : ''}"><span class="dot ${m.online ? 'ok' : ''}"></span>${m.online} online</span><a class="btn sm" href="${url(`${m.id}/`)}" target="_blank" rel="noopener">Open</a></div>`).join('')}
           <div class="row" style="margin-top:10px"><button class="btn sm" data-go="modules">${icon('layers')} Install & download</button></div></div>

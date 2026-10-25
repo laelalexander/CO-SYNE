@@ -5,13 +5,21 @@ import { generateHolderKeys, loadIdentity, saveIdentity, clearIdentity, signText
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
 import { $, $$, esc, initials, money, time, dateTime, vehicleLine, ALERT_LABEL, citationDocument, showDocument, toast, tone } from '../lib/ui.js';
+import { disablePush, enablePush, isIos, isStandalone, keepAwake, pushState, setBadge, vibrate } from '../lib/native.js';
 
+// Deep links from notifications and home-screen shortcuts:
+// ?stop=<id>&action=accept|text, ?tab=sos|tickets
+const params = new URL(location.href).searchParams;
 const S = {
   config: null, trust: [], identity: loadIdentity('driver'), session: null,
-  tab: 'home', stops: new Map(), alerts: new Map(), citations: new Map(),
+  tab: ['home', 'sos', 'tickets', 'activity', 'me'].includes(params.get('tab')) ? params.get('tab') : 'home',
+  stops: new Map(), alerts: new Map(), citations: new Map(),
   seenStops: new Set(), officerChecks: new Map(), call: null, callStopId: null, chat: [], view: null,
   location: { lat: 36.1236, lng: -95.9593, simulated: true },
+  pending: params.get('stop') ? { stopId: params.get('stop'), action: params.get('action') } : null,
+  offline: !navigator.onLine,
 };
+if (params.has('stop') || params.has('tab') || params.has('action')) history.replaceState(null, '', location.pathname);
 const view = $('#view');
 const overlayRoot = $('#overlay-root');
 const subject = () => S.identity?.credential?.subject ?? {};
@@ -31,6 +39,7 @@ function banner(title, text, onTap) {
   $('#banners').append(el);
   setTimeout(() => el.remove(), 6000);
   tone('chime');
+  vibrate('notify');
   if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
     try { new Notification(title, { body: text, icon: '../icons/driver-192.png' }); } catch { /* not allowed here */ }
   }
@@ -38,9 +47,85 @@ function banner(title, text, onTap) {
 
 // ---------- boot ----------
 async function init() {
-  ({ config: S.config, trust: S.trust } = await bootstrap());
+  let offline;
+  ({ config: S.config, trust: S.trust, offline } = await bootstrap());
+  if (offline) S.offline = true;
   $('#stage-tip').textContent = S.config.demo ? 'Demo mode: sample drivers are available on the welcome screen.' : '';
   if (S.identity) connect(); else { setNet('not signed in', false); render(); }
+  if (offline) setNet('offline', false);
+}
+
+// Offline: the wallet ID and sticker stay available; alerts resume on reconnect.
+addEventListener('online', () => { S.offline = false; render(); });
+addEventListener('offline', () => { S.offline = true; render(); });
+
+// The service worker forwards notification taps and pushes to an open app.
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  const m = e.data ?? {};
+  if (m.t === 'open') {
+    if (m.stopId) { S.pending = { stopId: m.stopId, action: m.action }; const st = S.stops.get(m.stopId); if (st) handlePending(st); }
+    else if (/tab=tickets/.test(m.url ?? '')) openTickets();
+  } else if (m.t === 'push' && m.payload?.kind === 'citation') {
+    S.session?.api('GET', '/api/citations').then(({ citations }) => { for (const c of citations) S.citations.set(c.id, c); render(); }).catch(() => {});
+  }
+});
+
+// Opens the stop a notification was tapped for, and answers if asked to.
+function handlePending(stop) {
+  const p = S.pending;
+  if (!p || p.stopId !== stop.id) return;
+  S.pending = null;
+  const ringing = !stop.call?.status || stop.call.status === 'ringing';
+  if (stop.status === 'failed') showDanger(stop);
+  else if (stop.status === 'ended') showStop(stop.id);
+  else if (p.action === 'accept' && ringing) answer(stop.id, 'accepted');
+  else if (p.action === 'text' && ringing) answer(stop.id, 'declined');
+  else if (S.view !== 'pullover' || S.viewStop !== stop.id) showPullover(stop);
+}
+
+// ---------- alerts while the app is closed (Web Push) ----------
+const ASK_KEY = 'cosyne:driver:push-asked';
+function maybeAskPush() {
+  const st = pushState();
+  if (st === 'granted') { enablePush(S.session.api, { ask: false }).catch(() => {}); return; }
+  if (!['default', 'ios-install'].includes(st)) return;
+  let last = 0;
+  try { last = Number(localStorage.getItem(ASK_KEY)) || 0; } catch { /* ignore */ }
+  if (Date.now() - last < 3 * 86400_000) return;
+  // Wait for a calm moment: never over a stop, a call, or another sheet.
+  setTimeout(() => { if (!S.view && !$('#sheet')) pushSheet(); }, 1500);
+}
+
+function pushSheet() {
+  const st = pushState();
+  try { localStorage.setItem(ASK_KEY, String(Date.now())); } catch { /* ignore */ }
+  const body = {
+    'ios-install': `<p>On iPhone, CO-SYNE can alert you only when it's installed on your Home Screen (iOS 16.4 or later).</p>
+      <ol class="small" style="padding-left:18px"><li>Tap the <b>Share</b> button in Safari.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open CO-SYNE from its new icon and turn on alerts.</li></ol>
+      <button class="btn primary block pill-btn" data-close>Got it</button>`,
+    unsupported: `<p>This browser can't receive alerts while CO-SYNE is closed. Keep the app open while driving, or use Chrome on Android or Safari on iPhone.</p><button class="btn block pill-btn" data-close>OK</button>`,
+    denied: `<p>Notifications are blocked for CO-SYNE. To get pull-over alerts, turn them on in your phone's <b>Settings → Notifications</b>${isStandalone() ? '' : ' or in the browser\'s site settings'}.</p><button class="btn block pill-btn" data-close>OK</button>`,
+    default: `<p>When an officer starts a stop, CO-SYNE alerts you even if this app is closed or your phone is locked. You'll see the officer's verified name and badge, and the reason, before anyone approaches.</p>
+      <div class="group" style="margin:12px 0"><div class="cell"><span class="ico-wrap">${icon('siren')}</span><span class="grow"><b>Pull-over alerts</b><span>With Accept video or Text only</span></span></div>
+      <div class="cell"><span class="ico-wrap">${icon('ticket')}</span><span class="grow"><b>Tickets and stop updates</b><span>Citations, warnings, and when a stop ends</span></span></div></div>
+      <button class="btn primary block pill-btn" id="push-on">Turn on alerts</button><button class="btn block pill-btn" style="margin-top:8px" data-close>Not now</button>`,
+    granted: `<p>Alerts are on for this phone. A pull-over alert reaches you even when CO-SYNE is closed.</p>
+      <button class="btn primary block pill-btn" id="push-test">Send a test alert</button><button class="btn block pill-btn" style="margin-top:8px" id="push-off">Turn off on this phone</button>`,
+  }[st];
+  sheet(`<h2>${icon('bell')} Alerts</h2>${body}`);
+  $$('#sheet [data-close]').forEach((b) => { b.onclick = closeSheet; });
+  $('#push-on')?.addEventListener('click', async () => {
+    try { const ok = await enablePush(S.session.api); toast(ok ? 'Alerts are on' : 'Alerts were not turned on'); } catch (e) { toast(e.message); }
+    closeSheet(); render();
+  });
+  $('#push-test')?.addEventListener('click', async () => {
+    try {
+      await enablePush(S.session.api, { ask: false });
+      const { delivered } = await S.session.api('POST', '/api/push/test');
+      toast(delivered ? 'Test alert sent. Lock your phone to see it arrive.' : 'This phone is not registered for alerts yet');
+    } catch (e) { toast(e.message); }
+  });
+  $('#push-off')?.addEventListener('click', async () => { await disablePush(S.session.api); toast('Alerts turned off on this phone'); closeSheet(); render(); });
 }
 
 function connect() {
@@ -58,11 +143,13 @@ function setNet(text, ok) {
 async function onMessage(msg) {
   if (msg.t === 'hello_ok') {
     setNet('connected to CO-SYNE', true);
+    S.offline = false;
     try {
       const { citations } = await S.session.api('GET', '/api/citations');
       for (const c of citations) S.citations.set(c.id, c);
     } catch { /* offline */ }
     render();
+    maybeAskPush();
   } else if (msg.t === 'disconnected') {
     setNet('reconnecting…', false);
   } else if (msg.t === 'error' && msg.ref === 'hello') {
@@ -101,6 +188,7 @@ async function onStop(stop) {
     showPullover(stop, { refresh: true });
   }
   if (S.view === 'stop' && S.viewStop === stop.id) showStop(stop.id);
+  handlePending(stop);
   render();
 }
 
@@ -114,6 +202,7 @@ function render() {
   if (!S.identity) { tabbar.classList.add('hidden'); renderWelcome(); return; }
   tabbar.classList.remove('hidden');
   const unpaid = [...S.citations.values()].filter((c) => !c.ack || c.status === 'unpaid').length;
+  setBadge(unpaid);
   tabbar.innerHTML = TABS.map(([id, label, ic]) => `<button class="${S.tab === id ? 'on' : ''} ${id === 'sos' ? 'sos-tab' : ''}" data-tab="${id}">${icon(ic)}${label}${id === 'tickets' && unpaid ? `<i class="badge">${unpaid}</i>` : ''}</button>`).join('');
   tabbar.querySelectorAll('[data-tab]').forEach((b) => { b.onclick = () => { S.tab = b.dataset.tab; render(); view.scrollTop = 0; }; });
   ({ home: renderHome, sos: renderSos, tickets: renderTickets, activity: renderActivity, me: renderMe })[S.tab]();
@@ -148,7 +237,9 @@ function renderHome() {
   const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   view.innerHTML = `
     <div class="greeting"><div><div class="sub">${hello}</div><h1>${esc(s.name?.split(' ')[0] ?? '')}</h1></div>
-      <span class="chip"><span class="dot ${S.session?.online ? 'ok' : 'warn'}"></span>${S.session?.online ? 'Protected' : 'Connecting'}</span></div>
+      <span class="chip"><span class="dot ${S.session?.online ? 'ok' : 'warn'}"></span>${S.session?.online ? 'Protected' : S.offline ? 'Offline' : 'Connecting'}</span></div>
+    ${S.offline ? `<div class="offline-card">${icon('wifi')}<div><b>No connection</b><span>Your ID, vehicle and sticker still work offline. Alerts and video resume when you're back online.</span></div></div>` : ''}
+    ${S.session?.online && ['default', 'ios-install'].includes(pushState()) ? `<button class="tile-card cell push-nudge" data-push-sheet><span class="ico-wrap">${icon('bell')}</span><span class="grow"><b>Get alerts when the app is closed</b><span>${pushState() === 'ios-install' ? 'Add CO-SYNE to your Home Screen first' : 'Turn on pull-over alerts for this phone'}</span></span>${icon('chevronRight')}</button>` : ''}
     ${stop ? `<button class="tile-card cell" style="border:2px solid var(--warn);border-radius:16px" data-open-stop="${esc(stop.id)}">
         <span class="ico-wrap" style="background:var(--warn-bg);color:var(--warn)">${icon('siren')}</span>
         <span class="grow"><b>Traffic stop in progress</b><span>${esc(stop.officer?.name ?? 'Officer')} · ${esc(stop.reason ?? '')}</span></span>${icon('chevronRight')}</button>` : ''}
@@ -177,6 +268,7 @@ function bindCommon() {
   view.querySelector('[data-open-id]')?.addEventListener('click', showId);
   view.querySelector('[data-open-vehicle]')?.addEventListener('click', showId);
   view.querySelector('[data-verify-nearby]')?.addEventListener('click', verifyNearby);
+  view.querySelector('[data-push-sheet]')?.addEventListener('click', pushSheet);
   view.querySelectorAll('[data-cit]').forEach((b) => { b.onclick = () => citationAction(b.dataset.cit, b.dataset.act); });
 }
 
@@ -306,21 +398,41 @@ function renderMe() {
     <div class="group"><div class="cell"><span class="ico-wrap">${icon('hand')}</span><span class="grow"><b>${esc(s.accessibility ? 'On your credential' : 'None on file')}</b><span>${esc(s.accessibility ?? 'Add notes such as hearing loss or a medical condition when you register.')}</span></span></div></div>
     <div class="group-title">Vehicle sticker</div>
     <div class="group"><div class="cell" style="flex-direction:column;align-items:stretch;text-align:center">
-      <img src="${url(`/api/stickers/${encodeURIComponent(S.identity.stickerId)}/qr.svg`)}" alt="Sticker QR" style="width:150px;margin:6px auto">
+      <img id="sticker-qr" src="${stickerQrSrc()}" alt="Sticker QR" style="width:150px;margin:6px auto">
       <span class="small muted">Officers scan this from the patrol car. The code holds only a link, never your personal data.</span>
       <a class="btn sm" style="margin-top:10px" href="../sticker.html?id=${encodeURIComponent(S.identity.stickerId)}" target="_blank" rel="noopener">${icon('printer')} Print bumper and window stickers</a></div></div>
     <div class="group-title">Settings</div>
     <div class="group">
-      <button class="cell" id="notif"><span class="ico-wrap">${icon('bell')}</span><span class="grow"><b>Notifications</b><span>${'Notification' in window ? Notification.permission : 'not supported'}</span></span>${icon('chevronRight')}</button>
+      <button class="cell" id="notif"><span class="ico-wrap">${icon('bell')}</span><span class="grow"><b>Alerts when the app is closed</b><span>${esc({ granted: 'On for this phone', default: 'Off · tap to turn on', denied: 'Blocked in phone settings', 'ios-install': 'Add to Home Screen to turn on', unsupported: 'Not supported in this browser' }[pushState()])}</span></span>${icon('chevronRight')}</button>
+      <div class="cell"><span class="ico-wrap">${icon('phone')}</span><span class="grow"><b>App</b><span>${isStandalone() ? 'Installed on this phone' : isIos() ? 'In Safari · Share → Add to Home Screen to install' : 'In the browser · use Install app in the menu'}</span></span></div>
       <div class="cell"><span class="ico-wrap">${icon('pin')}</span><span class="grow"><b>Location</b><span>${S.location.simulated ? 'Simulated (Tulsa) for the demo' : 'Device GPS'}</span></span></div>
       <button class="cell" id="signout"><span class="ico-wrap" style="color:var(--danger)">${icon('logout')}</span><span class="grow"><b style="color:var(--danger)">Remove ID from this phone</b><span>Your private key is deleted from this device.</span></span></button>
     </div>
     <p class="tiny muted">CO-SYNE Driver · ${esc(S.config.pilot)} · credential ${esc(S.identity.credential.id)}</p>`;
-  $('#notif').onclick = () => { if ('Notification' in window) Notification.requestPermission().then(render); };
+  $('#notif').onclick = pushSheet;
+  cacheStickerQr();
   $('#signout').onclick = () => {
     if (!confirm('Remove your CO-SYNE ID from this phone?')) return;
-    clearIdentity('driver'); S.session?.close(); location.reload();
+    disablePush(S.session.api).finally(() => {
+      try { localStorage.removeItem(qrKey()); } catch { /* ignore */ }
+      clearIdentity('driver'); S.session?.close(); location.reload();
+    });
   };
+}
+
+// The driver's own sticker QR is kept on the phone so it shows offline.
+const qrKey = () => `cosyne:driver:qr:${S.identity.stickerId}`;
+function stickerQrSrc() {
+  let svg = null;
+  try { svg = localStorage.getItem(qrKey()); } catch { /* ignore */ }
+  return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : url(`/api/stickers/${encodeURIComponent(S.identity.stickerId)}/qr.svg`);
+}
+async function cacheStickerQr() {
+  try {
+    if (localStorage.getItem(qrKey()) || S.offline) return;
+    const res = await fetch(url(`/api/stickers/${encodeURIComponent(S.identity.stickerId)}/qr.svg`));
+    if (res.ok) localStorage.setItem(qrKey(), await res.text());
+  } catch { /* offline or storage blocked */ }
 }
 
 function showId() {
@@ -351,6 +463,7 @@ function officerBlock(stop) {
 
 function showPullover(stop, { refresh } = {}) {
   S.view = 'pullover'; S.viewStop = stop.id;
+  keepAwake('stop', true);
   const callState = stop.call?.status;
   const html = `<div class="overlay pullover ${callState && callState !== 'ringing' ? 'calm' : ''}">
     <div class="po-kicker">${icon('siren')} CO-SYNE traffic stop</div>
@@ -378,7 +491,7 @@ function showPullover(stop, { refresh } = {}) {
 let ringTimer = null;
 function startRinging() {
   stopRinging();
-  const ring = () => { tone('alert'); if (navigator.vibrate) navigator.vibrate([400, 200, 400]); };
+  const ring = () => { tone('alert'); vibrate('pullover'); };
   ring();
   ringTimer = setInterval(ring, 2600);
   setTimeout(stopRinging, 45_000);
@@ -420,6 +533,7 @@ function showStop(stopId) {
   if (!stop) return;
   S.view = 'stop'; S.viewStop = stopId;
   const live = !['ended', 'failed'].includes(stop.status);
+  keepAwake('stop', live);
   const cits = (stop.citations ?? []).map((c) => S.citations.get(c.id) ?? c);
   setOverlay(`<div class="overlay" style="background:var(--bg)"><div class="view" style="padding-top:58px">
     <div class="spread" style="margin-bottom:10px"><button class="btn sm ghost" id="stop-back">${icon('chevronLeft')} Back</button>${live ? '<span class="pill warn"><span class="live"></span> Live stop</span>' : '<span class="pill">Ended</span>'}</div>
@@ -453,7 +567,7 @@ function showDanger(stop) {
   stopRinging();
   S.view = 'danger'; S.viewStop = stop.id;
   tone('warn');
-  if (navigator.vibrate) navigator.vibrate([600, 200, 600, 200, 600]);
+  vibrate('danger');
   const check = S.officerChecks.get(stop.id);
   setOverlay(`<div class="overlay danger-screen">
     <div class="po-kicker" style="color:#ffadb0">${icon('shieldAlert')} Warning</div>
@@ -468,6 +582,7 @@ function showDanger(stop) {
 
 function showDone(stop) {
   stopRinging();
+  keepAwake('stop', false);
   S.view = 'done'; S.viewStop = stop.id;
   const cits = (stop.citations ?? []);
   setOverlay(`<div class="overlay done-screen">
@@ -486,6 +601,7 @@ function showDone(stop) {
 async function openCall({ room, stopId = null, title, sub }) {
   if (S.call && S.call.room !== room) endCall();
   S.callStopId = stopId; S.callRoom = room; S.callTitle = title; S.callSub = sub;
+  keepAwake('call', true);
   if (!S.call) {
     S.chat = [];
     S.callBox = Object.assign(document.createElement('div'), { className: 'call-box' });
@@ -564,6 +680,7 @@ async function openChatOnly(stopId) {
 function endCall() {
   S.call?.leave();
   S.call = null; S.callStopId = null; S.callPeers = []; S.callRoom = null;
+  keepAwake('call', false);
   renderMiniCall();
 }
 
@@ -582,7 +699,9 @@ function setOverlay(html) { overlayRoot.innerHTML = html; renderMiniCall(); }
 function closeOverlay() {
   stopRinging();
   if (S.view === 'call' && S.call) { /* keep the call running in the background */ }
-  overlayRoot.innerHTML = ''; S.view = null; S.viewStop = null; render();
+  overlayRoot.innerHTML = ''; S.view = null; S.viewStop = null;
+  keepAwake('stop', Boolean(activeStop()));
+  render();
 }
 function sheet(html) {
   closeSheet();

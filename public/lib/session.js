@@ -25,8 +25,19 @@ export async function api(method, path, body, token) {
 export async function bootstrap() {
   setupInstall();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(url('/sw.js'), { scope: ROOT.pathname }).catch(() => {});
-  const [config, trust] = await Promise.all([api('GET', '/api/config'), api('GET', '/api/trust')]);
-  return { config, trust: trust.issuers };
+  // The public configuration and trust registry are kept for offline starts,
+  // so the driver's wallet ID still opens with no signal.
+  const key = `cosyne:bootstrap:${ROOT.pathname}`;
+  try {
+    const [config, trust] = await Promise.all([api('GET', '/api/config'), api('GET', '/api/trust')]);
+    try { localStorage.setItem(key, JSON.stringify({ config, trust: trust.issuers })); } catch { /* storage full or blocked */ }
+    return { config, trust: trust.issuers, offline: false };
+  } catch (err) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(key) ?? 'null'); } catch { /* ignore */ }
+    if (!saved) throw err;
+    return { ...saved, offline: true };
+  }
 }
 
 // Opens the network session. identity = { credential, privateJwk } for

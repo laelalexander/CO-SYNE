@@ -202,3 +202,20 @@ body.driver {
 .call-box { display: contents; }
 
 .callscreen .remote .tile:not(.self):not([data-role="dispatch"]) .tag { display: none; }
+
+/* Native-app feel on phones and when installed. */
+body.driver { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 760px), (display-mode: standalone) {
+  html, body.driver { overscroll-behavior: none; }
+  .view { overscroll-behavior-y: contain; padding-left: max(18px, env(safe-area-inset-left)); padding-right: max(18px, env(safe-area-inset-right)); }
+  .tabbar button, .cell, .round-btn, .sos { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .tabbar button:active, .cell:active, .sos:active { opacity: .6; }
+}
+@media (display-mode: standalone) { .stage-note { display: none; } }
+.offline-card { display: flex; gap: 12px; align-items: flex-start; background: var(--warn-bg); border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; }
+.offline-card .ico { width: 22px; height: 22px; color: var(--warn); margin-top: 2px; }
+.offline-card b { display: block; }
+.offline-card span { font-size: .85rem; color: var(--muted); }
+.push-nudge { border: 1px solid var(--brand-bg); }
+.push-nudge .ico-wrap { background: var(--brand-bg); color: var(--brand-2); }
+.sheet h2 .ico { width: 20px; height: 20px; vertical-align: -3px; }
