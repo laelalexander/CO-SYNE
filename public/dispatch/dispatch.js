@@ -3,6 +3,7 @@
 import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
+import { redeemDemoPass } from '../lib/demo.js';
 import {
   $, $$, esc, initials, money, time, timeSec, dateTime, ago, coords, vehicleLine, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
   citationDocument, reportDocument, showDocument, showModal, hideModal, toast, tone,
@@ -479,6 +480,11 @@ async function credentialForPeer(peerId) {
 // ---------- boot ----------
 async function init() {
   ({ config: S.config, trust: S.trust } = await bootstrap());
+  // A Demo Control link signs the console in without the access code.
+  try {
+    const r = await redeemDemoPass('dispatch');
+    if (r?.dispatch) { S.dispatcher = r.dispatch; try { sessionStorage.setItem('cosyne:dispatch', JSON.stringify(S.dispatcher)); } catch { /* ignore */ } }
+  } catch (e) { renderLogin(e.message); return; }
   if (S.dispatcher?.token) connect(); else renderLogin();
 }
 window.cosyne = { S, select, joinCall, leaveCall, render };

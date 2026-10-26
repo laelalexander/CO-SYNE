@@ -794,6 +794,9 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
       notice: 'Simulation data. Private keys are included so demo devices can act as these people. Never do this with real identities.',
       drivers: samples.drivers.map(({ key, credential, publicJwk, privateJwk, stickerId }) => ({ key, credential, publicJwk, privateJwk, stickerId })),
       officers: samples.officers.map(({ key, credential, publicJwk, privateJwk }) => ({ key, credential, publicJwk, privateJwk })),
+      // Drivers made by Demo Control, so the officer terminal can simulate scanning their sticker. No keys.
+      kitDrivers: [...program.apps.values()].filter((a) => a.demo && a.credentialId && a.stickerId && ['issued', 'active'].includes(a.status) && !identity.revoked.has(a.credentialId))
+        .slice(-4).map((a) => ({ key: a.id, credential: credentials.get(a.credentialId)?.credential, stickerId: a.stickerId })).filter((d) => d.credential),
     };
   });
 
@@ -926,6 +929,36 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   const by = (s) => `state:${s.profile.name}`;
   const ledgerApp = (type, app, extra = {}) => ledger.append(type, { applicationId: app.id, jurisdiction: app.jurisdiction, ...extra }, app.id);
 
+  // The state's approve, issue and mail steps, shared by the console and the demo kit.
+  function approveApplication(a, who) {
+    a.status = 'approved';
+    const pay = program.recordPayment(a, 'enrollment', a.payment);
+    program.log(a, 'approved', who, `Fee charged: ${pay.amount} · ${pay.confirmation}`);
+    ledgerApp('program_approved', a);
+    ledgerApp('program_payment', a, { kind: 'enrollment', amount: pay.amount, stateShare: pay.stateShare, adminFee: pay.adminFee, county: pay.county, simulated: true });
+    program.save();
+  }
+  function issueApplication(a, who) {
+    a.stickerId = randomId('stk', 6);
+    if (a.publicJwk) issueCredential(a, who);
+    else {
+      // Applied on the web: the letter carries an activation code for the app.
+      a.activationCode = randomBytes(5).toString('hex').toUpperCase();
+      registerPendingSticker(a);
+    }
+    a.status = 'issued';
+    a.issuedAt = new Date().toISOString();
+    program.log(a, 'sticker_set_issued', who, `Sticker ${a.stickerId.slice(4, 10).toUpperCase()}: bumper sticker, window sticker and plate tag`);
+    ledger.append('sticker_issued', { stickerId: a.stickerId, credentialId: a.credentialId, plate: a.vehicle.plate, program: true }, a.credentialId ?? a.id);
+    program.save();
+  }
+  function mailApplication(a, who) {
+    a.status = 'active'; a.mailedAt = new Date().toISOString();
+    program.log(a, 'mailed', who, 'Letter and sticker set mailed');
+    ledgerApp('program_mailed', a);
+    program.save();
+  }
+
   // Public: program terms and participating states
   route('GET', '/api/program/info', () => ({
     fee: program.fee, stateShareRate: program.stateShareRate, perPayment: { stateShare: program.split().stateShareRounded, adminFee: program.split().adminFeeRounded },
@@ -1035,12 +1068,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     const a = getApp(params.id); const s = stateFrom(req, a);
     if (!a.realId?.ok) throw new HttpError(409, 'only residents with a verified REAL ID-compliant license can be approved');
     if (a.status !== 'verified') throw new HttpError(409, `application is ${a.status}`);
-    a.status = 'approved';
-    const pay = program.recordPayment(a, 'enrollment', a.payment);
-    program.log(a, 'approved', by(s), `Fee charged: ${pay.amount} · ${pay.confirmation}`);
-    ledgerApp('program_approved', a);
-    ledgerApp('program_payment', a, { kind: 'enrollment', amount: pay.amount, stateShare: pay.stateShare, adminFee: pay.adminFee, county: pay.county, simulated: true });
-    program.save();
+    approveApplication(a, by(s));
     return appView(a, { staff: true });
   });
   route('POST', '/api/state/applications/:id/decline', ({ req, params, body }) => {
@@ -1069,27 +1097,13 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   route('POST', '/api/state/applications/:id/issue', ({ req, params }) => {
     const a = getApp(params.id); const s = stateFrom(req, a);
     if (a.status !== 'approved') throw new HttpError(409, 'approve the application first');
-    a.stickerId = randomId('stk', 6);
-    if (a.publicJwk) issueCredential(a, by(s));
-    else {
-      // Applied on the web: the letter carries an activation code for the app.
-      a.activationCode = randomBytes(5).toString('hex').toUpperCase();
-      registerPendingSticker(a);
-    }
-    a.status = 'issued';
-    a.issuedAt = new Date().toISOString();
-    program.log(a, 'sticker_set_issued', by(s), `Sticker ${a.stickerId.slice(4, 10).toUpperCase()}: bumper sticker, window sticker and plate tag`);
-    ledger.append('sticker_issued', { stickerId: a.stickerId, credentialId: a.credentialId, plate: a.vehicle.plate, program: true }, a.credentialId ?? a.id);
-    program.save();
+    issueApplication(a, by(s));
     return appView(a, { staff: true });
   });
   route('POST', '/api/state/applications/:id/mailed', ({ req, params }) => {
     const a = getApp(params.id); const s = stateFrom(req, a);
     if (a.status !== 'issued') throw new HttpError(409, `application is ${a.status}`);
-    a.status = 'active'; a.mailedAt = new Date().toISOString();
-    program.log(a, 'mailed', by(s), 'Letter and sticker set mailed');
-    ledgerApp('program_mailed', a);
-    program.save();
+    mailApplication(a, by(s));
     if (a.credentialId) push.send(a.credentialId, { kind: 'notice', tag: `mail-${a.id}`, url: 'driver/?tab=me', title: 'Your CO-SYNE stickers are on the way', body: 'Your bumper sticker, window sticker and plate tag were mailed today.' }).catch(() => {});
     return appView(a, { staff: true });
   });
@@ -1183,6 +1197,219 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   const reminderTimer = setInterval(sendRenewalReminders, 6 * 3600_000);
   reminderTimer.unref?.();
 
+
+  // ---------- Demo Control: one-time sign-in links for a full demo ----------
+  // The Main Admin generates a link per module. Opening it signs that module in
+  // without typing a code: the pass in the URL fragment is exchanged once at
+  // /api/demo/redeem. Passes are stored hashed, work only in demo mode, are
+  // single use and expire. The real access codes never change.
+  const demoFile = dataDir ? path.join(dataDir, 'demo.json') : null;
+  const demoHours = Math.min(72, Math.max(1, Number(env.DEMO_LINK_HOURS) || 12));
+  const demo = (() => {
+    try { const d = JSON.parse(fs.readFileSync(demoFile, 'utf8')); return { passes: d.passes ?? [], grants: d.grants ?? [] }; } catch { return { passes: [], grants: [] }; }
+  })();
+  const saveDemo = () => {
+    if (!demoFile) return;
+    const now = Date.now();
+    demo.grants = demo.grants.filter((g) => Date.parse(g.expiresAt) > now);
+    fs.writeFileSync(demoFile + '.tmp', JSON.stringify(demo), { mode: 0o600 });
+    fs.renameSync(demoFile + '.tmp', demoFile);
+  };
+  const passHash = (p) => createHash('sha256').update(String(p)).digest('hex');
+  const passStatus = (p) => (p.revokedAt ? 'revoked' : p.usedAt ? 'used' : Date.parse(p.expiresAt) < Date.now() ? 'expired' : 'ready');
+  const DEMO_MODULES = {
+    dispatch: { title: 'Dispatch console', path: 'dispatch/', desktop: true },
+    officer: { title: 'Officer terminal', path: 'officer/', desktop: true },
+    state: { title: 'State Issuer Console', path: 'state/', desktop: true },
+    driver: { title: 'Driver app · approved driver', path: 'driver/', desktop: true },
+    'driver-pending': { title: 'Driver app · application awaiting approval', path: 'driver/', desktop: false },
+  };
+  // A dispatch pass becomes a demo dispatch grant, accepted at sign-in like the access code.
+  const demoGrantValid = (token) => demoEnabled && typeof token === 'string' && token.startsWith('dgr_')
+    && demo.grants.some((g) => g.hash === passHash(token) && Date.parse(g.expiresAt) > Date.now());
+  const KIT_PEOPLE = [
+    { name: 'Jordan Rivera', dob: '1991-07-04', street: '415 S Boston Ave', city: 'Tulsa', county: 'Tulsa', zip: '74103', make: 'Honda', model: 'Accord', color: 'Blue', accessibility: 'Hard of hearing; prefers text' },
+    { name: 'Maya Thompson', dob: '1987-03-19', street: '2210 E 15th St', city: 'Tulsa', county: 'Tulsa', zip: '74104', make: 'Toyota', model: 'Corolla', color: 'Silver', accessibility: '' },
+  ];
+  function kitApplication(person, { publicJwk, channelNote } = {}) {
+    const digits = () => String(Math.floor(Math.random() * 1e7)).padStart(7, '0');
+    const lic = `D${digits().slice(0, 6)}${[0, 2, 4, 6, 8][Math.floor(Math.random() * 5)]}`; // even last digit: REAL ID on file
+    const a = program.apply({
+      jurisdiction: 'OK', consent: true, publicJwk, payment: { last4: '4242' },
+      applicant: { name: person.name, dob: person.dob, licenseNumber: lic, email: `${person.name.split(' ')[0].toLowerCase()}@example.com`, accessibility: person.accessibility, address: { street: person.street, city: person.city, county: person.county, zip: person.zip } },
+      vehicle: { plate: `OK${person.name[0]}${digits().slice(0, 4)}`, year: 2021, make: person.make, model: person.model, color: person.color },
+    });
+    a.demo = true;
+    program.log(a, 'demo_kit', 'admin', channelNote ?? 'Created by Demo Control');
+    ledgerApp('program_application_submitted', a, { channel: a.channel, demo: true });
+    return a;
+  }
+  function kitApprove(a, { mail = true } = {}) {
+    program.checkIdentity(a, 'state:Demo Control');
+    approveApplication(a, 'state:Demo Control');
+    issueApplication(a, 'state:Demo Control');
+    if (mail) mailApplication(a, 'state:Demo Control');
+    return a;
+  }
+  const demoAdmin = (req) => {
+    const s = sessionFrom(req, { role: 'admin' });
+    if (!demoEnabled) throw new HttpError(403, 'demo links need demo mode (COSYNE_DEMO=on)');
+    return s;
+  };
+  const adminName = (s) => s.profile?.name ?? s.label ?? 'admin';
+
+  route('GET', '/api/admin/demo', ({ req }) => {
+    sessionFrom(req, { role: 'admin' });
+    return {
+      enabled: demoEnabled, hours: demoHours,
+      passes: demo.passes.slice(-40).reverse().map((p) => ({ id: p.hash.slice(0, 10), module: p.module, title: DEMO_MODULES[p.module]?.title ?? p.module, who: p.who, createdAt: p.createdAt, expiresAt: p.expiresAt, usedAt: p.usedAt ?? null, status: passStatus(p) })),
+      officers: samples.officers.map((o) => ({ key: o.key, name: o.credential.subject.name, badge: o.credential.subject.badge, unit: o.credential.subject.unit, agency: o.credential.issuerName })),
+      counts: { stops: stops.size, citations: citations.size, alerts: alerts.size, reports: reports.size, applications: program.apps.size },
+    };
+  });
+  route('POST', '/api/admin/demo/prepare', async ({ req, body }) => {
+    const s = demoAdmin(req);
+    const hours = Math.min(72, Math.max(1, Number(body.hours) || demoHours));
+    const officer = samples.officers.find((o) => o.key === body.officerKey) ?? samples.officers[0];
+    if (!officer) throw new HttpError(409, 'no demo officers are loaded');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + hours * 3600_000).toISOString();
+    // A fresh kit replaces any links that have not been used yet.
+    for (const p of demo.passes) if (passStatus(p) === 'ready') p.revokedAt = now.toISOString();
+    const base = publicBase(req);
+    const kit = [];
+    const add = async (module, who, extra = {}) => {
+      const pass = randomId('dp', 18);
+      demo.passes.push({ hash: passHash(pass), module, who, createdAt: now.toISOString(), expiresAt, ...extra });
+      const link = `${base}/${DEMO_MODULES[module].path}#demo=${pass}`;
+      const qr = await QRCode.toString(link, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, color: { dark: '#0b1b2b', light: '#ffffff' } });
+      kit.push({ module, title: DEMO_MODULES[module].title, desktop: DEMO_MODULES[module].desktop, who, link, qr, expiresAt });
+    };
+    await add('dispatch', 'Demo dispatcher · Tulsa 911');
+    await add('officer', `${officer.credential.subject.name} · Badge ${officer.credential.subject.badge} · ${officer.credential.issuerName}`, { officerKey: officer.key });
+    await add('state', 'Demo Program Office · all states');
+    await add('driver', `${KIT_PEOPLE[0].name} · approved, credential active`, { person: 0 });
+    await add('driver-pending', `${KIT_PEOPLE[1].name} · waiting for state approval`, { person: 1 });
+    // Fallback: a resident who applied online and activates with the code in their letter.
+    const web = kitApprove(kitApplication({ ...KIT_PEOPLE[1], name: 'Chris Morgan', dob: '1979-10-02' }, { channelNote: 'Applied online (Demo Control fallback)' }), { mail: true });
+    saveDemo();
+    ledger.append('demo_kit_prepared', { by: adminName(s), modules: kit.map((k) => k.module), officer: officer.key, expiresAt }, 'demo');
+    return { kit, expiresAt, activationCode: web.activationCode, activationFor: `${web.applicant.name} · ${web.id}` };
+  });
+  route('POST', '/api/admin/demo/revoke', ({ req }) => {
+    const s = sessionFrom(req, { role: 'admin' });
+    const at = new Date().toISOString();
+    let n = 0;
+    for (const p of demo.passes) if (passStatus(p) === 'ready') { p.revokedAt = at; n++; }
+    const grants = demo.grants.length;
+    demo.grants = [];
+    saveDemo();
+    ledger.append('demo_links_revoked', { by: adminName(s), links: n, dispatchGrants: grants }, 'demo');
+    return { revoked: n, dispatchGrants: grants };
+  });
+  // Plain codes for fallback, shown only on request. The ledger records the reveal, never the codes.
+  route('POST', '/api/admin/demo/codes', ({ req }) => {
+    const s = demoAdmin(req);
+    ledger.append('demo_codes_revealed', { by: adminName(s) }, 'demo');
+    const st = stateTokens.find((t) => !t.jurisdictions) ?? stateTokens[0];
+    return { dispatch: dispatchToken, officerEnroll: officerEnrollCode, state: st?.token ?? null };
+  });
+  route('POST', '/api/admin/demo/reset', ({ req }) => {
+    const s = demoAdmin(req);
+    // Back up every data file first.
+    let backup = null;
+    if (dataDir) {
+      backup = path.join(dataDir, 'backups', `demo-reset-${new Date().toISOString().replace(/[:.]/g, '-')}`);
+      fs.mkdirSync(backup, { recursive: true });
+      for (const f of fs.readdirSync(dataDir)) if (f.endsWith('.json')) fs.copyFileSync(path.join(dataDir, f), path.join(backup, f));
+    }
+    const cleared = { stops: stops.size, citations: citations.size, alerts: alerts.size, reports: reports.size, applications: program.apps.size };
+    stops.clear(); citations.clear(); alerts.clear(); reports.clear(); roomHistory.clear();
+    for (const u of units.values()) if (u.status !== 'offline') u.status = 'available';
+    // Program applications: revoke their credentials and stickers, then start over.
+    for (const a of program.apps.values()) {
+      if (a.credentialId && !identity.revoked.has(a.credentialId)) revokeCredential(a.credentialId, 'demo reset', 'admin');
+      if (a.stickerId) stickers.delete(a.stickerId);
+    }
+    program.apps.clear(); program.payments.length = 0; program.save();
+    for (const p of demo.passes) if (passStatus(p) === 'ready') p.revokedAt = new Date().toISOString();
+    demo.grants = [];
+    saveDemo();
+    const seeded = seedDemoApplications();
+    ledger.append('demo_reset', { by: adminName(s), cleared, seeded, backup: backup ? path.basename(backup) : null }, 'demo');
+    pushDispatchState();
+    return { cleared, seeded, backup: backup ? path.relative(dataDir, backup) : null };
+  });
+  // Fictional residents for the State Issuer Console, at each step of the flow.
+  function seedDemoApplications() {
+    const people = [
+      ['Maria Lopez', '1988-04-12', 'D42816620', 'Tulsa', 'Tulsa', '74103', 'OKM1042', 'Honda', 'Civic', 'mailed'],
+      ['Robert Hayes', '1975-09-30', 'D51937744', 'Broken Arrow', 'Tulsa', '74012', 'OKR2290', 'Ford', 'F-150', 'mailed'],
+      ['Angela Brooks', '1992-01-05', 'D30418852', 'Norman', 'Cleveland', '73069', 'OKA7781', 'Toyota', 'RAV4', 'issued'],
+      ['Kevin Nguyen', '1983-11-22', 'D77120468', 'Oklahoma City', 'Oklahoma', '73102', 'OKK5530', 'Chevrolet', 'Malibu', 'approved'],
+      ['Tasha Williams', '1990-06-17', 'D60293316', 'Tulsa', 'Tulsa', '74119', 'OKT8814', 'Nissan', 'Altima', 'verified'],
+      ['Daniel Price', '1969-03-08', 'D18245597', 'Sand Springs', 'Tulsa', '74063', 'OKD3307', 'Jeep', 'Cherokee', 'declined'],
+      ['Grace Kim', '1996-08-29', 'D84410972', 'Edmond', 'Oklahoma', '73034', 'OKG6620', 'Subaru', 'Outback', 'submitted'],
+      ['Luis Garcia', '1985-12-02', '41230986', 'Dallas', 'Dallas', '75201', 'TXL4410', 'Toyota', 'Tacoma', 'mailed', 'TX'],
+      ['Sarah Mitchell', '1979-05-14', '58821434', 'Austin', 'Travis', '78701', 'TXS9902', 'Tesla', 'Model 3', 'issued', 'TX'],
+    ];
+    const who = 'state:Demo Program Office';
+    for (const [name, dob, lic, city, county, zip, plate, make, model, upTo, jur = 'OK'] of people) {
+      const a = program.apply({
+        jurisdiction: jur, consent: true, payment: { last4: '4242' },
+        applicant: { name, dob, licenseNumber: lic, email: `${name.split(' ')[0].toLowerCase()}@example.com`, address: { street: `${(lic.charCodeAt(3) * 37) % 9000 + 100} Example St`, city, county, zip } },
+        vehicle: { plate, year: 2016 + (lic.charCodeAt(4) % 8), make, model },
+      });
+      a.demo = true;
+      if (upTo === 'submitted') continue;
+      program.checkIdentity(a, who);
+      if (upTo === 'verified') continue;
+      if (upTo === 'declined') { program.decline(a, who, 'License on file is not REAL ID-compliant'); continue; }
+      approveApplication(a, who);
+      if (upTo === 'approved') continue;
+      issueApplication(a, who);
+      if (upTo === 'mailed') mailApplication(a, who);
+    }
+    program.save();
+    return people.length;
+  }
+  // Any module: exchange a pass once for what that module needs to start signed in.
+  route('POST', '/api/demo/redeem', ({ req, body }) => {
+    if (!demoEnabled) throw new HttpError(403, 'demo links are turned off on this server');
+    const p = demo.passes.find((x) => x.hash === passHash(body.pass));
+    if (!p) throw new HttpError(404, 'demo link not recognized');
+    const st = passStatus(p);
+    if (st !== 'ready') throw new HttpError(410, `this demo link has ${st === 'used' ? 'already been used' : st === 'expired' ? 'expired' : 'been revoked'}; prepare a new one in the Main Admin`);
+    const expected = [].concat(body.module ?? []);
+    if (expected.length && !expected.includes(p.module)) throw new HttpError(409, `this link is for the ${DEMO_MODULES[p.module]?.title ?? p.module}`);
+    const needsKey = p.module === 'driver' || p.module === 'driver-pending';
+    const pk = body.publicJwk;
+    if (needsKey && !(pk?.kty === 'OKP' && pk.crv === 'Ed25519' && typeof pk.x === 'string')) throw new HttpError(400, 'device key required');
+    p.usedAt = new Date().toISOString();
+    let out;
+    if (p.module === 'dispatch') {
+      const grant = randomId('dgr', 24);
+      demo.grants.push({ hash: passHash(grant), expiresAt: p.expiresAt });
+      out = { dispatch: { name: 'Demo dispatcher', token: grant } };
+    } else if (p.module === 'state') {
+      const name = 'Demo Program Office';
+      const token = newSession({ role: 'state', label: `State · ${name}`, profile: { name }, jurisdictions: null, since: new Date().toISOString() });
+      out = { state: { token, name, jurisdictions: program.jurisdictions.map((j) => j.code) } };
+    } else if (p.module === 'officer') {
+      const o = samples.officers.find((x) => x.key === p.officerKey) ?? samples.officers[0];
+      out = { officer: { credential: o.credential, publicJwk: o.publicJwk, privateJwk: o.privateJwk } };
+    } else if (p.module === 'driver') {
+      const a = kitApprove(kitApplication(KIT_PEOPLE[p.person ?? 0], { publicJwk: pk }));
+      out = { driver: { credential: credentials.get(a.credentialId).credential, stickerId: a.stickerId, membership: { id: a.id, token: a.token } } };
+    } else {
+      const a = kitApplication(KIT_PEOPLE[p.person ?? 1], { publicJwk: pk });
+      program.save();
+      out = { pending: { id: a.id, token: a.token, jurisdiction: a.jurisdiction } };
+    }
+    saveDemo();
+    ledger.append('demo_link_used', { module: p.module, link: p.hash.slice(0, 10) }, 'demo');
+    return { module: p.module, ...out };
+  });
 
   // ---------- Web Push (driver phones) ----------
   route('GET', '/api/push/key', () => ({ publicKey: push.vapid.publicKey }));
@@ -1618,7 +1845,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   function onHello(c, msg) {
     let data;
     if (msg.role === 'dispatch') {
-      if (!sameSecret(msg.token, dispatchToken)) throw new Error('invalid dispatch token');
+      if (!sameSecret(msg.token, dispatchToken) && !demoGrantValid(msg.token)) throw new Error('invalid dispatch token');
       const name = String(msg.name ?? '').trim().slice(0, 60);
       data = { role: 'dispatch', label: name ? `Dispatch · ${name}` : 'Dispatch', profile: { name: name || 'Dispatcher', agency: CENTERS[0].name } };
     } else if (msg.role === 'officer' || msg.role === 'driver') {
@@ -1708,7 +1935,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   }
 
   return {
-    server, secure: Boolean(tls), ledger, identity, units, alerts, stops, stickers, citations, reports, samples, push, program,
+    server, secure: Boolean(tls), ledger, identity, units, alerts, stops, stickers, citations, reports, samples, push, program, demo,
     listen(port = 0, host) {
       return new Promise((resolve) => server.listen(port, host, () => resolve(server.address().port)));
     },

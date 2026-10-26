@@ -82,7 +82,7 @@ async function refresh() {
 
 // ---------- shell ----------
 const VIEWS = [
-  ['overview', 'Overview', 'activity'], ['modules', 'Modules & downloads', 'layers'], ['devices', 'Network devices', 'network'],
+  ['overview', 'Overview', 'activity'], ['demo', 'Demo control', 'check'], ['modules', 'Modules & downloads', 'layers'], ['devices', 'Network devices', 'network'],
   ['credentials', 'Credentials', 'id'], ['agencies', 'Agencies & units', 'users'], ['operations', 'Operations', 'siren'],
   ['ledger', 'Evidence ledger', 'database'], ['broadcast', 'System notices', 'bell'], ['program', 'State program', 'id'], ['leads', 'Website leads', 'message'], ['settings', 'Settings', 'settings'],
 ];
@@ -318,6 +318,102 @@ const PAGES = {
       } catch (err) { toast(err.message); }
     };
     $$('[data-unpin]', page).forEach((b) => { b.onclick = async () => { try { await call('POST', `/api/admin/broadcast/${b.dataset.unpin}/unpin`); await refresh(); PAGES.broadcast(page); } catch (err) { toast(err.message); } }; });
+  },
+
+  async demo(page) {
+    let d;
+    try { d = await call('GET', '/api/admin/demo'); } catch (e) { page.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+    const kit = (() => { try { const k = JSON.parse(sessionStorage.getItem('cosyne:admin:demo-kit') ?? 'null'); return k && Date.parse(k.expiresAt) > Date.now() ? k : null; } catch { return null; } })();
+    const status = new Map();
+    for (const p of d.passes) if (!status.has(p.module)) status.set(p.module, p.status);
+    const MOD_ICON = { dispatch: 'headset', officer: 'shield', state: 'id', driver: 'phone', 'driver-pending': 'clock' };
+    const PILL = { ready: 'ok', used: '', expired: 'warn', revoked: 'bad' };
+    const label = (st) => (st === 'ready' ? 'Ready' : st[0].toUpperCase() + st.slice(1));
+    const person = (m, fallback) => kit?.kit.find((k) => k.module === m)?.who.split(' · ')[0] ?? fallback;
+    page.innerHTML = `<div class="page-head"><div><h1>Demo control</h1><p class="small muted">One-time links that open each module already signed in, so a demo needs no typed codes. Links work once, expire after ${d.hours} hours by default, and only while demo mode is on. The real access codes don't change.</p></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn sm" id="dm-reset">${icon('activity')} Reset demo</button><button class="btn sm" id="dm-revoke">${icon('x')} Revoke all links</button></div></div>
+      ${d.enabled ? '' : '<div class="notice bad">Demo mode is off on this server (COSYNE_DEMO=off), so demo links are refused.</div>'}
+      <div class="demo-layout"><div>
+        <div class="card demo-prep"><div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <label class="grow" style="min-width:220px"><span class="small muted">Officer for the patrol terminal</span><select id="dm-officer">${d.officers.map((o) => `<option value="${esc(o.key)}">${esc(o.name)} · Badge ${esc(o.badge)} · ${esc(o.unit)} · ${esc(o.agency)}</option>`).join('')}</select></label>
+          <label><span class="small muted">Links last</span><select id="dm-hours">${[2, 4, 8, 12, 24].map((h) => `<option value="${h}"${h === d.hours ? ' selected' : ''}>${h} hours</option>`).join('')}</select></label>
+          <button class="btn brand" id="dm-prepare" ${d.enabled ? '' : 'disabled'}>${icon('check')} Prepare full demo</button>
+          ${kit ? `<button class="btn" id="dm-launch">${icon('layers')} Launch all on this computer</button>` : ''}
+        </div><p class="tiny muted" style="margin:10px 0 0">Preparing a new demo replaces any links that haven't been used yet. Each link signs in one window or phone, once.</p></div>
+        ${kit ? `<div class="demo-cards">${kit.kit.map((k) => { const st = status.get(k.module) ?? 'ready'; return `<div class="card demo-card ${st}">
+            <div class="row" style="gap:10px;align-items:flex-start"><span class="demo-ico">${icon(MOD_ICON[k.module] ?? 'grid')}</span><div class="grow"><b>${esc(k.title)}</b><div class="small muted">${esc(k.who)}</div></div><span class="pill ${PILL[st] ?? ''}">${label(st)}</span></div>
+            <div class="demo-body"><div class="demo-qr" title="Scan with a phone or another computer">${k.qr}</div>
+              <div class="grow" style="min-width:0"><input class="demo-link" readonly value="${esc(k.link)}" aria-label="${esc(k.title)} link">
+                <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-copy="${esc(k.module)}">${icon('link')} Copy</button><button class="btn sm brand" data-open="${esc(k.module)}" ${st === 'ready' ? '' : 'disabled'}>${icon('chevronRight')} Open</button></div>
+                <p class="tiny muted" style="margin:8px 0 0">${k.module === 'driver-pending' ? 'Best on a second phone: approve it in the State console during the demo.' : k.module === 'driver' ? 'Scan with the driver phone, or open here in its own window.' : 'Opens in its own window.'}</p></div></div></div>`; }).join('')}</div>
+          <div class="card" style="margin-top:14px"><h4>Fallback codes</h4><p class="small muted">If a link is used up mid-demo, sign in by hand. Revealing the access codes is recorded in the ledger.</p>
+            <dl class="kv"><dt>Driver activation code</dt><dd><span class="mono">${esc(kit.activationCode ?? '—')}</span> <span class="tiny muted">${esc(kit.activationFor ?? '')} · "Activate with a code" in the Driver app</span></dd></dl>
+            <div id="dm-codes" style="margin-top:10px"><button class="btn sm" id="dm-reveal">${icon('eye')} Reveal access codes</button></div></div>`
+        : '<div class="card empty" style="margin-top:14px">Choose the officer and press <b>Prepare full demo</b>. You get a link and QR code for Dispatch, the Officer terminal, the State console, an approved driver phone, and a driver phone with an application waiting for approval.</div>'}
+        <div class="card" style="margin-top:14px;padding:0"><div class="table-wrap"><table class="table"><tr><th>Link</th><th>Signs in as</th><th>Created</th><th>Status</th></tr>
+          ${d.passes.map((p) => `<tr><td><b>${esc(p.title)}</b><div class="tiny muted mono">${esc(p.id)}</div></td><td class="small">${esc(p.who)}</td><td class="small">${dateTime(p.createdAt)}<div class="tiny muted">expires ${dateTime(p.expiresAt)}</div></td><td><span class="pill ${PILL[p.status] ?? ''}">${esc(label(p.status))}</span>${p.usedAt ? `<div class="tiny muted">${dateTime(p.usedAt)}</div>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">No demo links yet.</td></tr>'}</table></div></div>
+      </div>
+      <aside class="card demo-script"><h4>Demo script</h4><ol>
+        <li><b>Dispatch</b> (big screen): the Tulsa map with patrol units live.</li>
+        <li><b>Driver phone</b>: open the approved driver link. Show the wallet ID, and the sticker and membership on the Me tab.</li>
+        <li><b>Officer terminal</b>: open the Sticker Scanner, pick ${esc(person('driver', 'the demo driver'))}'s vehicle under Pilot vehicles, choose a reason and start the stop.</li>
+        <li><b>Driver phone</b>: the verified officer, badge and reason appear before the approach. Accept the video call.</li>
+        <li><b>Dispatch</b>: the stop appears live. Join the call or watch the ledger.</li>
+        <li><b>Officer</b>: run the records check, then issue a citation or warning. It arrives on the phone.</li>
+        <li><b>Officer</b>: end the stop and file the report. It is sealed in the ledger.</li>
+        <li><b>State console</b>: in Applications, open ${esc(person('driver-pending', 'the waiting application'))}, check REAL ID, approve and issue. The second phone receives its credential.</li>
+        <li><b>State console</b>: print the letter and sticker set, then show Revenue: $9.50 of each $24.99 to the state.</li>
+        <li><b>Main Admin</b>: the overview and evidence ledger, then <b>Reset demo</b> for the next audience.</li>
+      </ol></aside></div>`;
+
+    const findKit = (m) => kit?.kit.find((k) => k.module === m);
+    const WIN = { dispatch: 'width=1500,height=900,left=0,top=0', officer: 'width=1366,height=820,left=60,top=40', state: 'width=1366,height=860,left=120,top=80', driver: 'width=430,height=900,left=1000,top=60', 'driver-pending': 'width=430,height=900,left=1040,top=90' };
+    const openMod = (m) => window.open(findKit(m).link, `cosyne-demo-${m}`, WIN[m]);
+    const later = () => setTimeout(() => { if (S.view === 'demo') PAGES.demo(page); }, 2500);
+    $('#dm-prepare', page).onclick = async (e) => {
+      e.currentTarget.disabled = true;
+      try {
+        const k = await call('POST', '/api/admin/demo/prepare', { officerKey: $('#dm-officer', page).value, hours: Number($('#dm-hours', page).value) });
+        try { sessionStorage.setItem('cosyne:admin:demo-kit', JSON.stringify(k)); } catch { /* ignore */ }
+        toast('Demo links ready');
+      } catch (err) { toast(err.message); }
+      PAGES.demo(page);
+    };
+    $('#dm-launch', page)?.addEventListener('click', () => {
+      const blocked = kit.kit.filter((k) => k.desktop && (status.get(k.module) ?? 'ready') === 'ready').filter((k) => !openMod(k.module));
+      if (blocked.length) toast(`Your browser blocked ${blocked.length} window${blocked.length > 1 ? 's' : ''}. Allow pop-ups for this site, or use the Open buttons.`);
+      later();
+    });
+    $$('[data-open]', page).forEach((b) => { b.onclick = () => { if (!openMod(b.dataset.open)) toast('Allow pop-ups for this site to open demo windows.'); later(); }; });
+    $$('[data-copy]', page).forEach((b) => {
+      b.onclick = async () => {
+        try { await navigator.clipboard.writeText(findKit(b.dataset.copy).link); toast('Link copied'); } catch { b.closest('.demo-card').querySelector('.demo-link').select(); toast('Press Ctrl+C to copy'); }
+      };
+    });
+    $('#dm-revoke', page).onclick = async () => {
+      if (!confirm('Revoke every unused demo link and demo dispatch sign-in?')) return;
+      try { const r = await call('POST', '/api/admin/demo/revoke'); toast(`Revoked ${r.revoked} link${r.revoked === 1 ? '' : 's'}`); } catch (err) { toast(err.message); }
+      PAGES.demo(page);
+    };
+    $('#dm-reset', page).onclick = async () => {
+      if (!confirm('Reset the demo? Stops, citations, alerts, reports and state program applications are cleared (a backup is saved first), unused links are revoked, and the sample applications are recreated.')) return;
+      try {
+        const r = await call('POST', '/api/admin/demo/reset');
+        try { sessionStorage.removeItem('cosyne:admin:demo-kit'); } catch { /* ignore */ }
+        toast(`Demo reset. Backup saved: ${r.backup ?? 'none'}`);
+        await refresh();
+      } catch (err) { toast(err.message); }
+      PAGES.demo(page);
+    };
+    $('#dm-reveal', page)?.addEventListener('click', async () => {
+      try {
+        const c = await call('POST', '/api/admin/demo/codes');
+        $('#dm-codes', page).innerHTML = `<dl class="kv"><dt>Dispatch console</dt><dd class="mono">${esc(c.dispatch)}</dd><dt>State Issuer Console</dt><dd class="mono">${esc(c.state ?? 'not set')}</dd><dt>Officer enrollment</dt><dd class="mono">${esc(c.officerEnroll)}</dd></dl>`;
+      } catch (err) { toast(err.message); }
+    });
+    // Keep link status current while the page is open (paused while codes are revealed).
+    clearTimeout(S.demoTimer);
+    S.demoTimer = setTimeout(() => { if (S.view === 'demo' && document.body.contains(page) && !document.hidden && !page.querySelector('#dm-codes dl')) PAGES.demo(page); }, 8000);
   },
 
   async program(page) {

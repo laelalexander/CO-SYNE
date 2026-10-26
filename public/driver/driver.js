@@ -4,6 +4,7 @@ import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { generateHolderKeys, loadIdentity, saveIdentity, clearIdentity, signText, verifyCredentialLocally } from '../lib/keys.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
+import { hasDemoPass, redeemDemoPass } from '../lib/demo.js';
 import { $, $$, esc, initials, money, time, dateTime, vehicleLine, ALERT_LABEL, citationDocument, showDocument, toast, tone } from '../lib/ui.js';
 import { disablePush, enablePush, isIos, isStandalone, keepAwake, pushState, setBadge, vibrate } from '../lib/native.js';
 
@@ -51,6 +52,7 @@ async function init() {
   ({ config: S.config, trust: S.trust, offline } = await bootstrap());
   if (offline) S.offline = true;
   $('#stage-tip').textContent = S.config.demo ? 'Demo mode: sample drivers are available on the welcome screen.' : '';
+  if (hasDemoPass()) await startFromDemoLink();
   if (S.identity) connect(); else { setNet('not signed in', false); render(); }
   if (offline) setNet('offline', false);
 }
@@ -905,6 +907,21 @@ function useIdentity(id) {
   closeSheet();
   S.tab = 'home';
   connect();
+}
+
+// A Demo Control link starts this phone as a new demo resident: either already
+// approved by the state, or with an application waiting for the state's approval.
+async function startFromDemoLink() {
+  try {
+    const keys = await generateHolderKeys();
+    const r = await redeemDemoPass(['driver', 'driver-pending'], { publicJwk: keys.publicJwk });
+    clearIdentity('driver'); writeJson(MEMBER_KEY, null); writeJson(APP_KEY, null); S.identity = null;
+    if (r.driver) {
+      writeJson(MEMBER_KEY, r.driver.membership);
+      S.identity = { credential: r.driver.credential, ...keys, stickerId: r.driver.stickerId };
+      saveIdentity('driver', S.identity);
+    } else if (r.pending) writeJson(APP_KEY, { ...r.pending, ...keys });
+  } catch (e) { setTimeout(() => toast(e.message), 300); }
 }
 
 // Hooks for automated end-to-end tests.

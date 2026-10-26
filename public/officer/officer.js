@@ -4,6 +4,7 @@ import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { generateHolderKeys, loadIdentity, saveIdentity, clearIdentity, signText } from '../lib/keys.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
+import { redeemDemoPass } from '../lib/demo.js';
 import { scanStickerImage, startCameraScan, stickerIdFromText } from '../lib/scanner.js';
 import {
   $, $$, esc, initials, money, time, timeSec, dateTime, ago, coords, vehicleLine, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
@@ -333,7 +334,7 @@ async function mountScanner(body) {
       <h3>Reason for the stop</h3>${reasonSelect('scan-reason')}
       <h4 style="margin:16px 0 8px">Point the camera at the vehicle's CO-SYNE sticker</h4>
       <p class="small muted">Bumper sticker or rear-window cling. The scan opens the stop, sends the driver your verified identity and the reason, and rings their phone for a video call.</p>
-      ${S.samples?.drivers?.length ? `<h4 style="margin:16px 0 8px">Pilot vehicles (simulate a scan)</h4><div class="sticker-pick">${S.samples.drivers.map((d) => { const s = d.credential.subject; return `<button data-sim="${esc(d.stickerId)}"><img src="${url(`/api/stickers/${encodeURIComponent(d.stickerId)}/qr.svg`)}" alt=""><span><b>${esc(fmtPlate(s.vehicle.plate))}</b><br>${esc(`${s.vehicle.color} ${s.vehicle.make} ${s.vehicle.model}`)}</span></button>`; }).join('')}</div>` : ''}
+      ${S.samples?.drivers?.length ? `<h4 style="margin:16px 0 8px">Pilot vehicles (simulate a scan)</h4><div class="sticker-pick">${[...(S.samples.kitDrivers ?? []), ...S.samples.drivers].map((d) => { const s = d.credential.subject; return `<button data-sim="${esc(d.stickerId)}"><img src="${url(`/api/stickers/${encodeURIComponent(d.stickerId)}/qr.svg`)}" alt=""><span><b>${esc(fmtPlate(s.vehicle.plate))}</b><br>${esc(`${s.vehicle.color} ${s.vehicle.make} ${s.vehicle.model}`)}</span></button>`; }).join('')}</div>` : ''}
       <h4 style="margin:16px 0 8px">No sticker? Look up by plate</h4>
       <form id="plate-form" class="row" style="flex-wrap:nowrap"><input id="plate-in" placeholder="Plate, e.g. KJR-482" autocomplete="off"><button class="btn">${icon('search')} Lookup</button></form>
     </div></div>`;
@@ -799,6 +800,11 @@ async function init() {
   S.catalog = await api('GET', '/api/violations');
   if (S.config.demo) S.samples = await api('GET', '/api/samples').catch(() => null);
   renderLock();
+  // A Demo Control link signs this terminal in as the chosen pilot officer.
+  try {
+    const r = await redeemDemoPass('officer');
+    if (r?.officer) { S.identity = r.officer; saveIdentity('officer', S.identity); renderLock(); signIn(); return; }
+  } catch (e) { renderLock(e.message); return; }
   if (S.identity && new URL(location.href).searchParams.get('autologin') !== '0' && S.pendingScan) signIn();
 }
 

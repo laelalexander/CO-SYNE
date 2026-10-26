@@ -3,6 +3,7 @@
 // prints letters, manages renewals and sees the revenue split.
 import { api, bootstrap, url } from '../lib/session.js';
 import { icon } from '../lib/icons.js';
+import { redeemDemoPass } from '../lib/demo.js';
 import { LETTER_CSS, STICKER_CSS, approvalLetter, receivedNotice, infoNeededNotice, declinedNotice, enclosureGuide, stickerSet } from '../lib/letters.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -320,6 +321,11 @@ function printLetters(list) {
 // ---------- boot ----------
 (async () => {
   try { ({ config: S.config } = await bootstrap()); } catch (e) { document.body.innerHTML = `<p style="margin:40px">Cannot reach the CO-SYNE network: ${esc(e.message)}</p>`; return; }
+  // A Demo Control link signs the console in without the access code.
+  try {
+    const r = await redeemDemoPass('state');
+    if (r?.state) { S.session = r.state; try { sessionStorage.setItem('cosyne:state', JSON.stringify(S.session)); } catch { /* ignore */ } }
+  } catch (e) { renderLogin(e.message); return; }
   if (S.session?.token) start().catch(() => renderLogin()); else renderLogin();
 })();
 window.cosyne = { S, render };
