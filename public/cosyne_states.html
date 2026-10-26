@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>For States | CO-SYNE</title>
+  <meta name="description" content="CO-SYNE for state DMVs and DOTs: a ready system to verify residents against REAL ID, issue signed credentials and QR sticker sets, collect the annual fee, and verify across state lines.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+  <style>
+    .econ { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0 10px; }
+    .econ div { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-2); padding: 16px; border-top: 4px solid var(--blue); }
+    .econ small { font-size: .76rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .econ b { display: block; font: 600 1.6rem/1.2 var(--font-display); color: var(--ink); margin: 4px 0 2px; }
+    .econ span { font-size: .88rem; color: var(--muted); }
+    .split-fee { display: flex; height: 44px; border-radius: 8px; overflow: hidden; margin: 12px 0 6px; font: 600 .9rem/44px var(--font); color: #fff; }
+    .split-fee i { font-style: normal; padding: 0 12px; white-space: nowrap; }
+    .flow-v { list-style: none; padding: 0 !important; counter-reset: s; }
+    .flow-v li { position: relative; padding-left: 46px; min-height: 34px; }
+    .flow-v li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: .9rem; }
+    .stk-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin: 12px 0 16px; }
+    .stk { background: #0b1b2b; color: #fff; border-radius: 10px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+    .stk img { width: 64px; height: 64px; background: #fff; border-radius: 6px; padding: 3px; }
+    .stk b { font: 800 1rem/1.1 var(--font-display); } .stk b span { color: #e0c171; } .stk small { display: block; font-size: .72rem; color: #b9c7d6; }
+    .stk.win { background: #fff; color: var(--ink); border: 4px solid #c9a54a; flex-direction: column; text-align: center; padding: 10px; }
+    .stk.win small { color: var(--muted); }
+    .stk.tag { flex-direction: column; padding: 8px; text-align: center; }
+    .stk.tag img { width: 48px; height: 48px; }
+    @media (max-width: 560px) { .econ { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header id="site-header"></header>
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="eyebrow">For state DMVs, DOTs and public safety agencies</span>
+          <h1>A verified roadside program your state can run from day one</h1>
+          <p class="lead">CO-SYNE gives your motor vehicle agency the system to confirm residents against your REAL ID records, issue state-signed credentials and QR sticker sets, collect the annual fee, and verify drivers across state lines.</p>
+          <div class="actions"><a class="btn btn-primary" href="cosyne_contact.html?type=state">Request a state briefing</a><a class="btn btn-secondary" href="cosyne_state_briefing.html">Watch the briefing</a></div>
+        </div>
+        <div class="duo">
+          <picture class="photo"><img src="site/img/photos/highway-stop.webp" srcset="site/img/photos/highway-stop-800.webp 800w, site/img/photos/highway-stop.webp 1600w" sizes="(max-width: 960px) 92vw, 44vw" width="1600" height="1066" alt="A patrol car behind a vehicle on the shoulder of a highway" fetchpriority="high"></picture>
+          <span class="chip"><i data-icon="id"></i> State-signed · REAL ID-backed</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap doc-layout">
+        <nav class="doc-toc" aria-label="State program contents">
+          <h4>State program</h4>
+          <ol>
+            <li><a href="#s1">The program</a></li><li><a href="#s2">The resident's path</a></li><li><a href="#s3">The State Issuer Console</a></li><li><a href="#s4">Stickers and plate tag</a></li>
+            <li><a href="#s5">Built on REAL ID</a></li><li><a href="#s6">Benefits to residents</a></li><li><a href="#s7">Benefits to the state</a></li><li><a href="#s8">Program economics</a></li>
+            <li><a href="#s9">The transition</a></li><li><a href="#s10">Who does what</a></li><li><a href="#s11">Across state lines</a></li><li><a href="#s12">Federal and tribal partners</a></li>
+            <li><a href="#s13">Privacy and security</a></li><li><a href="#s14">Next steps</a></li>
+          </ol>
+          <div class="actions"><a class="btn btn-primary btn-sm" href="cosyne_contact.html?type=state">Request a state briefing</a><a class="btn btn-secondary btn-sm" href="cosyne_state_letter.html">Sample resident letter</a><button class="btn btn-secondary btn-sm" onclick="print()">Print or save as PDF</button></div>
+        </nav>
+        <article class="doc-body">
+          <section id="s1"><h2><small>The program</small>Your state issues it. CO-SYNE runs it.</h2>
+            <p class="lede">CO-SYNE is a voluntary, opt-in program. A resident applies, your agency confirms them against the REAL ID-compliant license already on file, and the state issues a signed credential and a QR sticker set for their vehicle.</p>
+            <p>At a traffic stop, the officer scans the sticker from the patrol car. The driver's phone shows the officer's verified identity and the reason for the stop before anyone approaches. The officer sees a state-verified driver and vehicle, plus any accessibility notes the resident chose to add.</p>
+            <p>The system is built and running: the State Issuer Console, the Driver app, the Officer terminal and the Dispatch console are live in demonstration at iobeacons.com/cosyne.</p>
+            <div class="callout"><b>For residents:</b> $24.99 a year. <b>For the state:</b> 38% of every fee, a ready system, and no new database of residents.</div></section>
+
+          <section id="s2"><h2><small>The resident's path</small>Five steps from application to a verified stop</h2>
+            <ol class="flow-v">
+              <li><b>Apply</b> in the CO-SYNE Driver app, online, or at a DMV office. The resident enters their license number, plate and mailing address, and authorizes the $24.99 fee.</li>
+              <li><b>Verify</b>: your agency confirms the applicant against the REAL ID-compliant license on file. Only REAL ID-verified residents can be approved.</li>
+              <li><b>Approve and charge</b>: the fee is charged only on approval. A declined applicant is never charged.</li>
+              <li><b>Issue</b>: the state signs the credential, and the approval letter, sticker set and plate tag are printed and mailed.</li>
+              <li><b>Activate</b>: the resident opens the Driver app, or enters the one-time code from their letter, and the credential is bound to their phone.</li>
+            </ol>
+            <p><a class="link-arrow" href="cosyne_apply.html">See the resident application</a></p></section>
+
+          <section id="s3"><h2><small>The system</small>The State Issuer Console</h2>
+            <p>One web console for your program staff, signed in with a state access code and locked after repeated failed attempts.</p>
+            <ul>
+              <li><b>Application queue</b>: Submitted, Identity verified, Approved, Issued, Active or Declined, with search, filters and a full history on each file.</li>
+              <li><b>REAL ID check</b> on every applicant before approval. Simulated in the pilot until it connects to your records system.</li>
+              <li><b>Print center</b>: approval letters, enclosure guides and sticker sets, printed one at a time or in batches, then marked as mailed.</li>
+              <li><b>Renewals</b>: memberships due in the next 60 days, with reminders sent 30 and 7 days before expiry.</li>
+              <li><b>Revoke and reissue</b>: for a lost sticker, a new plate or a new vehicle. Reissuing cancels the old QR codes immediately.</li>
+              <li><b>Revenue</b>: the state share and administration by month and by county, exported to CSV. The ledger holds amounts only, never personal details.</li>
+              <li><b>Letterhead settings</b>: department name, office address, phone, website and signer, previewed before printing.</li>
+            </ul>
+            <p><a class="link-arrow" href="state/">Open the State Issuer Console</a> <span class="note">(demo access on request)</span></p></section>
+
+          <section id="s4"><h2><small>What residents receive</small>Bumper sticker, window sticker and plate tag</h2>
+            <div class="stk-row" aria-label="Illustration of the sticker set">
+              <div class="stk"><img src="downloads/qr.svg?app=driver" alt=""><div><b>CO-<span>SYNE</span> VERIFIED</b><small>Officers: scan from your patrol car.</small><small>Bumper · 11.5 × 3 in</small></div></div>
+              <div class="stk win"><img src="downloads/qr.svg?app=driver" alt=""><b style="font-size:.8rem">CO-SYNE VERIFIED STOP</b><small>Window · 4 × 4 in</small></div>
+              <div class="stk tag"><img src="downloads/qr.svg?app=driver" alt=""><b style="font-size:.7rem">CO-SYNE</b><small>Tag · 2 × 2 in</small></div>
+            </div>
+            <p>Each piece carries the same QR code. It holds only a link: no name, address or license details are printed on the vehicle. The window sticker covers vehicles with no flat bumper, and the plate tag sits beside the plate where state law allows a decal.</p>
+            <p class="illustrative">Illustration. These sample codes open the Driver app, not a live credential.</p></section>
+
+          <section id="s5"><h2><small>Within the REAL ID system</small>It builds on the verification your state already did</h2>
+            <p>Your agency has already verified identity, lawful status, Social Security number and residency for every REAL ID-compliant license. CO-SYNE reuses that result instead of creating a new identity process.</p>
+            <ul>
+              <li><b>Eligibility</b>: enrollment requires a current REAL ID-compliant license or ID on file with the state.</li>
+              <li><b>A yes or no, not a copy</b>: the console asks your records system whether the applicant's name, date of birth and license number match a REAL ID record. CO-SYNE does not copy your license database.</li>
+              <li><b>State-signed</b>: the credential is signed by your state's own issuer key and expires with the membership.</li>
+            </ul>
+            <p class="note">CO-SYNE is designed to work alongside REAL ID. It is not endorsed or approved by the U.S. Department of Homeland Security or any state, and it does not replace a driver license or REAL ID.</p></section>
+
+          <section id="s6"><h2><small>For residents</small>What a resident gets for $24.99 a year</h2>
+            <ul>
+              <li><b>Know who is stopping you</b>: the officer's verified name, badge, agency and reason, before anyone approaches.</li>
+              <li><b>Stay in your car</b>: talk with the officer by video or text from your seat.</li>
+              <li><b>Accessibility up front</b>: a Deaf driver, a driver with autism or diabetes, or one who speaks another language can tell the officer before the approach.</li>
+              <li><b>One-tap emergency</b>: location and vehicle go to 911 and the nearest responders.</li>
+              <li><b>Digital records</b>: citations and the stop record on the phone, sealed so nothing can be quietly changed.</li>
+              <li><b>Works across participating states</b> on the same sticker and app.</li>
+            </ul></section>
+
+          <section id="s7"><h2><small>For the state</small>What the state gets</h2>
+            <ul>
+              <li><b>A new revenue line</b>: 38% of every annual fee, $9.50 per enrollment, with no build cost.</li>
+              <li><b>Safer stops</b> for troopers and local officers, with the driver verified before the approach.</li>
+              <li><b>Public trust you can show</b>: a verified, recorded, accessible stop for every enrolled resident.</li>
+              <li><b>More value from REAL ID</b>: a reason for residents to upgrade, and use for the verification already done.</li>
+              <li><b>No new resident database</b>: your records stay where they are.</li>
+              <li><b>A ready system</b>: the console, apps, printing and payments are built. Your staff run the program; CO-SYNE administers it.</li>
+            </ul></section>
+
+          <section id="s8"><h2><small>Program economics</small>$24.99 a year, 38% to the state</h2>
+            <div class="split-fee" role="img" aria-label="Of $24.99, $9.50 to the state and $15.49 to program administration"><i style="width:38%;background:var(--blue)">State $9.50</i><i style="width:62%;background:#71afe5">Administration $15.49</i></div>
+            <p>Of each $24.99 annual fee, <b>$9.50 (38%)</b> goes to the state and <b>$15.49</b> covers program administration: the platform, credential issuance, printing and mailing the sticker set, payment processing, resident support and renewals.</p>
+            <h3>The state share at different enrollment levels</h3>
+            <div class="econ">
+              <div><small>10,000 residents</small><b>$94,962</b><span>a year to the state</span></div>
+              <div><small>100,000 residents</small><b>$949,620</b><span>a year to the state</span></div>
+              <div><small>500,000 residents</small><b>$4,748,100</b><span>a year to the state</span></div>
+            </div>
+            <p class="note">Illustrative only: enrollment counts multiplied by 38% of $24.99 ($9.4962). They are not forecasts. Fee levels, the split and any statutory authority are set in the state agreement.</p></section>
+
+          <section id="s9"><h2><small>The transition</small>From agreement to statewide in five phases</h2>
+            <div class="table-scroll"><table class="doc-table">
+              <tr><th>Phase</th><th>What happens</th></tr>
+              <tr><td>0 · Agreement and sandbox</td><td>An MOU, a named program lead, and a records sandbox to connect the REAL ID check. Staff train in the State Issuer Console with test applicants.</td></tr>
+              <tr><td>1 · Pilot region</td><td>One region or county, with partner law enforcement agencies equipped with the Officer terminal. Applications in the Driver app and online.</td></tr>
+              <tr><td>2 · Statewide enrollment</td><td>Open to every resident with a REAL ID-compliant license, online and at DMV offices, where staff help residents apply.</td></tr>
+              <tr><td>3 · At renewal</td><td>CO-SYNE is offered as an option during license and registration renewal, so residents can enroll in the same visit.</td></tr>
+              <tr><td>4 · Interstate reciprocity</td><td>Your state's credentials are recognized by officers in other participating states, and theirs by yours.</td></tr>
+            </table></div>
+            <p>Phases advance on results and readiness, not fixed dates. The <a href="cosyne_state_briefing.html">state briefing</a> walks through each phase.</p></section>
+
+          <section id="s10"><h2><small>Roles</small>Who does what</h2>
+            <div class="table-scroll"><table class="doc-table">
+              <tr><th>Who</th><th>Responsibilities</th></tr>
+              <tr><td>State DMV / motor vehicle agency</td><td>Owns the program and the issuer key. Confirms REAL ID eligibility, approves applicants, signs credentials, and sets letterhead and policy.</td></tr>
+              <tr><td>State DOT / highway safety office</td><td>Aligns the program with highway safety plans and eligible grants, and with corridor and interstate partners.</td></tr>
+              <tr><td>State police and local agencies</td><td>Equip patrol units with the Officer terminal, enroll officers with agency-signed credentials, and run verified stops.</td></tr>
+              <tr><td>Dispatch / 911 centers</td><td>See verified stops and emergency alerts live and can join a stop.</td></tr>
+              <tr><td>CO-SYNE</td><td>Runs and secures the platform, administers payments and renewals, prints and mails sticker sets, supports residents, and trains staff.</td></tr>
+              <tr><td>Residents</td><td>Opt in, apply, put the stickers on their vehicle, and renew each year.</td></tr>
+            </table></div></section>
+
+          <section id="s11"><h2><small>Interstate trust registry</small>Built to scale across state lines</h2>
+            <p class="lede">Each state signs its own credentials. There is no national database.</p>
+            <p>CO-SYNE publishes a trust registry: each participating state's issuer and its public key. An officer's terminal in one state checks a driver credential signed by another state against that registry, offline if needed, and sees which state issued it.</p>
+            <ul>
+              <li>Adding a state is adding an issuer to the registry, not merging records.</li>
+              <li>Each state keeps control: it can revoke its own residents' credentials at any time.</li>
+              <li>Drivers on the interstate are verified the same way at every participating state line.</li>
+            </ul>
+            <p class="note">Running today with Oklahoma and Texas demonstration issuers.</p></section>
+
+          <section id="s12"><h2><small>Federal and tribal partners</small>The same model for DHS and other agencies</h2>
+            <p>Because any trusted authority can be added as an issuer or a verifier, the model extends beyond state DMVs:</p>
+            <ul>
+              <li><b>Federal agencies</b>, such as components of the Department of Homeland Security, could verify credentials at federal facilities and checkpoints, or issue credentials for federal fleets.</li>
+              <li><b>Tribal nations</b> can issue credentials for their residents and law enforcement.</li>
+              <li><b>Federal and tribal law enforcement</b> can verify any participating state's credentials on the same terminal.</li>
+            </ul>
+            <p class="note">These are possible partnerships. No federal or tribal agency has endorsed or adopted CO-SYNE.</p></section>
+
+          <section id="s13"><h2><small>Privacy and security</small>Safeguards built in</h2>
+            <ul>
+              <li><b>Voluntary</b>: residents opt in and can leave at any time. Stops proceed as they do today without it.</li>
+              <li><b>Nothing personal on the vehicle</b>: the QR code holds only a link.</li>
+              <li><b>Device-bound keys</b>: each credential is tied to a key that never leaves the resident's phone.</li>
+              <li><b>Location only when it matters</b>: shared during an active stop or an emergency alert the resident sends.</li>
+              <li><b>A tamper-evident ledger</b>: every issuance, payment, stop and revocation is hash-chained and signed. Payment entries hold amounts and county, not names.</li>
+              <li><b>Instant revocation</b>: revoked or expired credentials fail verification on every terminal.</li>
+            </ul>
+            <p><a class="link-arrow" href="cosyne_security.html">Security and privacy in detail</a></p></section>
+
+          <section id="s14"><h2><small>Next steps</small>A 90-day start</h2>
+            <ol class="gates">
+              <li><b>Sign an MOU</b><i>Scope, fee, revenue share and data terms.</i></li>
+              <li><b>Name a program lead</b><i>At the DMV, with a DOT and state police contact.</i></li>
+              <li><b>Open a records sandbox</b><i>To connect the REAL ID eligibility check.</i></li>
+              <li><b>Choose a pilot region</b><i>With partner agencies ready to equip.</i></li>
+              <li><b>Kick off in 90 days</b><i>Staff training, letterhead, and the first residents enrolled.</i></li>
+            </ol>
+            <div class="actions" style="margin-top:20px"><a class="btn btn-primary" href="cosyne_contact.html?type=state">Request a state briefing</a><a class="btn btn-secondary" href="cosyne_state_briefing.html">Watch the briefing</a></div></section>
+        </article>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="site/site.js"></script>
+</body>
+</html>

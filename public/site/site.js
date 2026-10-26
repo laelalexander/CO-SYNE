@@ -4,7 +4,7 @@ import { icon } from '../lib/icons.js';
 
 const PAGES = [
   ['cosyne_index.html', 'Home'], ['cosyne_index.html#how', 'How it works'], ['cosyne_drivers.html', 'Drivers'],
-  ['cosyne_agencies.html', 'Agencies'], ['cosyne_platform.html', 'Platform'], ['cosyne_security.html', 'Security'], ['cosyne_contact.html', 'Contact'],
+  ['cosyne_agencies.html', 'Agencies'], ['cosyne_platform.html', 'Platform'], ['cosyne_states.html', 'For states'], ['cosyne_security.html', 'Security'], ['cosyne_contact.html', 'Contact'],
 ];
 const here = location.pathname.split('/').pop() || 'cosyne_index.html';
 
@@ -38,6 +38,7 @@ function footer() {
       <div><h4>Apps</h4><ul><li><a href="driver/">Driver app</a></li><li><a href="officer/">Officer terminal</a></li><li><a href="dispatch/">Dispatch console</a></li><li><a href="downloads/">Downloads</a></li><li><a href="admin/">Main admin</a></li></ul></div>
       <div><h4>Solutions</h4><ul><li><a href="cosyne_drivers.html">For drivers</a></li><li><a href="cosyne_agencies.html">For agencies</a></li><li><a href="cosyne_platform.html#hardware">Vehicle hardware</a></li><li><a href="cosyne_platform.html#pilot">Tulsa pilot</a></li></ul></div>
       <div><h4>Trust</h4><ul><li><a href="cosyne_security.html">Security &amp; privacy</a></li><li><a href="cosyne_security.html#faq">FAQ</a></li><li><a href="api/ledger/verify">Ledger status</a></li></ul></div>
+      <div><h4>States</h4><ul><li><a href="cosyne_states.html">State program</a></li><li><a href="cosyne_state_briefing.html">State briefing</a></li><li><a href="cosyne_state_letter.html">Sample resident letter</a></li><li><a href="cosyne_apply.html">Apply for CO-SYNE</a></li><li><a href="state/">State Issuer Console</a></li></ul></div>
       <div><h4>Investors</h4><ul><li><a href="cosyne_investors.html">Investor Relations</a></li><li><a href="cosyne_strategy.html">Market Strategy</a></li><li><a href="cosyne_thesis.html">Investment Thesis</a></li></ul></div>
       <div><h4>Company</h4><ul><li><a href="cosyne_index.html#about">About CO-SYNE</a></li><li><a href="cosyne_contact.html?type=agency">Request a demo</a></li><li><a href="cosyne_contact.html">Contact us</a></li></ul></div>
     </div>

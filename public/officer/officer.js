@@ -408,7 +408,7 @@ function autoNarrative(stop) {
   const o = stop.officer ?? {};
   const fails = (stop.checks ?? []).filter((c) => !c.ok).map((c) => `${c.label.toLowerCase()} (${c.detail})`);
   return `On ${new Date(stop.createdAt).toLocaleString()}, I, ${o.name ?? ''} (badge ${o.badge ?? ''}, ${o.unit ?? ''}), initiated a traffic stop on a ${vehicleLine(v)}, ${v.state ?? ''} tag ${fmtPlate(stop.plate)}, at ${coords(stop.location)} for: ${stop.reason ?? 'unspecified'}. `
-    + `The driver was identified by ${stop.via === 'sticker' ? 'scanning the vehicle\'s CO-SYNE sticker' : 'plate lookup'} as ${d.name ?? 'unknown'} (OK DL ${d.licenseNumber ?? '?'}), verified against a Service Oklahoma-signed credential${stop.proofs?.driver ? ' and confirmed on the driver\'s own phone' : ''}. `
+    + `The driver was identified by ${stop.via === 'sticker' ? 'scanning the vehicle\'s CO-SYNE sticker' : 'plate lookup'} as ${d.name ?? 'unknown'} (${d.jurisdiction ?? 'OK'} DL ${d.licenseNumber ?? '?'}), verified against a credential signed by ${d.issuer ?? 'Service Oklahoma'}${stop.proofs?.driver ? ' and confirmed on the driver\'s own phone' : ''}. `
     + `The driver received my verified identity and the reason for the stop on their phone before contact. The stop was conducted from the patrol vehicle by CO-SYNE ${stop.call?.status === 'declined' ? 'text' : 'live video'}. `
     + (fails.length ? `Records checks returned: ${fails.join('; ')}. ` : 'All records checks were clear. ')
     + (d.accessibility ? `Accommodation noted and provided: ${d.accessibility} ` : '');
@@ -503,7 +503,7 @@ function updateHud(body, stop) {
   }
   $('#v-join', body).classList.toggle('hidden', Boolean(S.call && S.callStopId === stop.id) || st === 'ended');
 
-  $('#h-driver', body).innerHTML = d ? `<header><h3>Driver</h3><span class="pill ok">${icon('shieldCheck')} ${esc(d.issuer ?? 'Service Oklahoma')} verified</span></header>
+  $('#h-driver', body).innerHTML = d ? `<header><h3>Driver</h3><span class="pill ok">${icon('shieldCheck')} ${d.jurisdiction ? `${esc(d.jurisdiction)} · ` : ''}${esc(d.issuer ?? 'Service Oklahoma')} verified${d.realId ? ' · REAL ID' : ''}</span></header>
       <div class="person"><div class="avatar">${esc(initials(d.name))}</div><div><b style="font-size:1.05rem">${esc(d.name)}</b><div class="small muted">DOB ${esc(d.dob ?? '—')} · ${esc(d.address ?? '')}</div></div></div>
       <dl class="kv"><dt>OK DL</dt><dd class="mono">${esc(d.licenseNumber)} · class ${esc(d.licenseClass ?? '—')}</dd><dt>Status</dt><dd>${esc(d.licenseStatus)} · exp ${esc(d.licenseExpires ?? '—')}</dd>
       <dt>Restrictions</dt><dd>${esc(d.restrictions ?? 'None')}</dd><dt>Device</dt><dd>${stop.proofs.driver ? '<span class="pill ok">Confirmed on driver\'s phone</span>' : '<span class="pill warn">Awaiting driver</span>'}</dd></dl>

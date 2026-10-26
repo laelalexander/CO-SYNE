@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apply for CO-SYNE | CO-SYNE</title>
+  <meta name="description" content="Apply for the CO-SYNE Verified Roadside program in a participating state. $24.99 a year, charged only if your enrollment is approved.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+  <style>
+    .apply-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+    .form fieldset { border: 0; padding: 0; margin: 0; display: contents; }
+    .form legend { grid-column: 1 / -1; font: 600 1.1rem/1.3 var(--font-display); color: var(--ink); margin-top: 10px; }
+    .fee-card { position: sticky; top: 88px; }
+    .fee-card .total { display: flex; justify-content: space-between; align-items: baseline; font: 600 1.1rem/1.3 var(--font-display); color: var(--ink); }
+    .fee-card .total b { font-size: 2rem; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; font-size: .95rem; }
+    .consent input { width: 18px; height: 18px; margin-top: 3px; }
+    .status-steps { list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+    .status-steps li { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+    .status-steps li i { width: 22px; height: 22px; border-radius: 50%; background: var(--bg-3); flex: 0 0 auto; }
+    .status-steps li.done { color: var(--ink); } .status-steps li.done i { background: var(--ok); }
+    .status-steps li.now { color: var(--ink); font-weight: 600; } .status-steps li.now i { background: var(--blue); box-shadow: 0 0 0 4px var(--blue-tint); }
+    @media (max-width: 960px) { .apply-grid { grid-template-columns: 1fr; } .fee-card { position: static; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header id="site-header"></header>
+  <main id="main">
+    <section class="page-hero" style="padding-bottom:40px">
+      <div class="wrap">
+        <span class="eyebrow">Residents of participating states</span>
+        <h1>Apply for CO-SYNE</h1>
+        <p class="lead">Your state confirms your identity against your REAL ID-compliant license, then mails your approval letter with an activation code, your stickers and your plate tag. Prefer your phone? <a href="driver/">Apply in the Driver app</a>.</p>
+      </div>
+    </section>
+    <section style="padding-top:40px">
+      <div class="wrap apply-grid">
+        <div id="apply-area">
+          <form class="form" id="apply" novalidate>
+            <fieldset><legend>Your license</legend>
+              <div class="field"><label for="a-state">State</label><select id="a-state" name="jurisdiction" required></select></div>
+              <div class="field"><label for="a-lic">License number</label><input id="a-lic" name="licenseNumber" required maxlength="20" autocapitalize="characters"></div>
+              <div class="field"><label for="a-name">Full name, as on your license</label><input id="a-name" name="name" required maxlength="100" autocomplete="name"></div>
+              <div class="field"><label for="a-dob">Date of birth</label><input id="a-dob" name="dob" type="date" required></div>
+            </fieldset>
+            <fieldset><legend>Mailing address</legend>
+              <div class="field full"><label for="a-street">Street</label><input id="a-street" name="street" required maxlength="160" autocomplete="street-address"></div>
+              <div class="field"><label for="a-city">City</label><input id="a-city" name="city" required maxlength="80" autocomplete="address-level2"></div>
+              <div class="field"><label for="a-county">County</label><input id="a-county" name="county" required maxlength="80"></div>
+              <div class="field"><label for="a-zip">ZIP code</label><input id="a-zip" name="zip" required maxlength="10" inputmode="numeric" autocomplete="postal-code"></div>
+              <div class="field"><label for="a-email">Email <span class="opt">(for status updates)</span></label><input id="a-email" name="email" type="email" maxlength="160" autocomplete="email"></div>
+              <div class="field"><label for="a-phone">Phone <span class="opt">(optional)</span></label><input id="a-phone" name="phone" type="tel" maxlength="40" autocomplete="tel"></div>
+            </fieldset>
+            <fieldset><legend>Your vehicle</legend>
+              <div class="field"><label for="a-plate">License plate</label><input id="a-plate" name="plate" required maxlength="10" autocapitalize="characters"></div>
+              <div class="field"><label for="a-year">Year</label><input id="a-year" name="year" inputmode="numeric" maxlength="4"></div>
+              <div class="field"><label for="a-make">Make</label><input id="a-make" name="make" maxlength="40"></div>
+              <div class="field"><label for="a-model">Model</label><input id="a-model" name="model" maxlength="40"></div>
+              <div class="field full"><label for="a-acc">Accessibility notes for officers <span class="opt">(optional)</span></label><input id="a-acc" name="accessibility" maxlength="300" placeholder="For example: Deaf, prefers text"></div>
+            </fieldset>
+            <fieldset><legend>Payment</legend>
+              <div class="field full"><label for="a-card">Card number</label><input id="a-card" name="card" inputmode="numeric" value="4242 4242 4242 4242"><span class="form-note">Pilot simulation: no card is charged. In a live program your card is authorized now and charged only on approval.</span></div>
+              <label class="consent full"><input type="checkbox" name="consent" required> <span>I agree to the program terms and privacy notice, and I authorize the state to confirm my identity against my driver license record.</span></label>
+            </fieldset>
+            <div class="hp" aria-hidden="true"><label for="a-web">Leave this empty</label><input id="a-web" name="website" tabindex="-1" autocomplete="off"></div>
+            <div class="full actions"><button class="btn btn-primary" type="submit">Submit application</button><span class="form-note" id="a-note"></span></div>
+          </form>
+        </div>
+        <aside class="card fee-card">
+          <h3>Annual program fee</h3>
+          <div class="total"><span>CO-SYNE membership, 1 year</span><b id="fee">$24.99</b></div>
+          <p id="split" style="margin-top:10px">Of each fee, $9.50 goes to the state and $15.49 covers program administration.</p>
+          <ul class="checks" style="list-style:none;padding:0;display:grid;gap:10px;margin:16px 0 0">
+            <li><i data-icon="check"></i><span>Charged only if approved</span></li>
+            <li><i data-icon="check"></i><span>Bumper sticker, window sticker and plate tag by mail</span></li>
+            <li><i data-icon="check"></i><span>Renews yearly, with a reminder 30 days before</span></li>
+          </ul>
+          <p class="illustrative" style="margin-top:16px">Demonstration program with Oklahoma and Texas demo issuers. Applications are reviewed in the pilot State Issuer Console.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="site/site.js"></script>
+  <script type="module">
+    const KEY = 'cosyne:web:application';
+    const area = document.getElementById('apply-area');
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = (n) => `$${Number(n).toFixed(2)}`;
+    async function call(method, path, body, token) {
+      const res = await fetch(path, { method, headers: { 'content-type': 'application/json', ...(token ? { 'x-application-token': token } : {}) }, body: body ? JSON.stringify(body) : undefined });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      return data;
+    }
+    const STEPS = [['submitted', 'Application received'], ['verified', 'Identity verified against REAL ID'], ['approved', 'Approved · fee charged'], ['issued', 'Letter, stickers and activation code being prepared'], ['active', 'Mailed']];
+    async function status(saved) {
+      let st;
+      try { st = await call('GET', `api/program/applications/${encodeURIComponent(saved.id)}`, null, saved.token); } catch (e) { area.innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; return; }
+      const at = STEPS.findIndex(([k]) => k === st.status);
+      area.innerHTML = `<div class="card"><span class="tag blue">Application ${esc(st.id)}</span><h2 style="margin-top:12px">${st.status === 'declined' ? 'Your application was not approved' : 'Thank you. Your application is in.'}</h2>
+        ${st.status === 'declined' ? `<p>${esc(st.declineReason ?? 'Enrollment requires a REAL ID-compliant license.')} You have not been charged.</p>`
+          : `<ul class="status-steps">${STEPS.map(([k, l], i) => `<li class="${i < at || (k === 'active' && i === at) ? 'done' : i === at ? 'now' : ''}"><i></i>${l}</li>`).join('')}</ul>
+             ${st.infoNeeded ? `<div class="alert bad"><b>More information needed:</b> ${esc(st.infoNeeded)}</div>` : ''}
+             <p>When you're approved, your letter arrives by mail with a one-time activation code. Install the <a href="driver/">CO-SYNE Driver app</a> and choose "Activate with a code".</p>`}
+        <p class="form-note">Keep your application number. This browser remembers it so you can check back here.</p>
+        <div class="actions" style="margin-top:14px"><button class="btn btn-secondary btn-sm" id="st-refresh">Check status</button><button class="btn btn-ghost btn-sm" id="st-new">Start a new application</button></div></div>`;
+      document.getElementById('st-refresh').onclick = () => status(saved);
+      document.getElementById('st-new').onclick = () => { try { localStorage.removeItem(KEY); } catch { /* ignore */ } location.reload(); };
+    }
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { /* storage blocked */ }
+    if (saved) status(saved);
+    try {
+      const info = await call('GET', 'api/program/info');
+      document.getElementById('a-state').innerHTML = info.jurisdictions.map((j) => `<option value="${esc(j.code)}">${esc(j.name)}${j.demo ? ' (demo)' : ''}</option>`).join('');
+      document.getElementById('fee').textContent = money(info.fee);
+      document.getElementById('split').textContent = `Of each fee, ${money(info.perPayment.stateShare)} goes to the state and ${money(info.perPayment.adminFee)} covers program administration.`;
+    } catch { document.getElementById('a-note').textContent = 'The program service is unavailable right now.'; }
+    document.getElementById('apply')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target; const note = document.getElementById('a-note');
+      if (!form.reportValidity()) return;
+      const f = Object.fromEntries(new FormData(form));
+      if (f.website) return;
+      const btn = form.querySelector('button[type=submit]'); btn.disabled = true; note.textContent = 'Submitting…';
+      try {
+        const r = await call('POST', 'api/program/apply', {
+          jurisdiction: f.jurisdiction, consent: Boolean(f.consent), payment: { last4: String(f.card).replace(/\D/g, '').slice(-4) },
+          applicant: { name: f.name, dob: f.dob, licenseNumber: f.licenseNumber, email: f.email, phone: f.phone, accessibility: f.accessibility, address: { street: f.street, city: f.city, county: f.county, zip: f.zip } },
+          vehicle: { plate: f.plate, year: f.year, make: f.make, model: f.model },
+        });
+        saved = { id: r.id, token: r.token };
+        try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* storage blocked */ }
+        status(saved);
+        scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) { note.textContent = err.message; btn.disabled = false; }
+    });
+  </script>
+</body>
+</html>

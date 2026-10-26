@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cosyne-root" content="../">
+  <meta name="theme-color" content="#ffffff">
+  <title>CO-SYNE State Issuer Console</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../icons/state.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../site/site.css">
+  <link rel="stylesheet" href="state.css">
+</head>
+<body class="state">
+  <section id="login" class="st-login hidden"></section>
+  <div id="app" class="st-app hidden">
+    <header class="st-top">
+      <button class="menu-btn" id="menu" aria-label="Menu"></button>
+      <a class="brand" href="./"><img src="../icons/state.svg" alt=""><span>CO-SYNE State Issuer<small id="sub">Program console</small></span></a>
+      <label class="juris">State <select id="juris"></select></label>
+      <span class="who" id="who"></span>
+      <button class="btn btn-secondary btn-sm" id="signout">Sign out</button>
+    </header>
+    <nav class="st-side" id="side"></nav>
+    <main class="st-main" id="main"></main>
+  </div>
+  <script type="module" src="state.js"></script>
+</body>
+</html>

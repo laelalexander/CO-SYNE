@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sample Resident Letter | CO-SYNE</title>
+  <meta name="description" content="A sample of the approval letter a state sends a resident enrolled in the CO-SYNE program, with the enclosure guide.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+  <style>
+    .letter-stage { background: var(--bg-2); padding: 36px 0 72px; }
+    .letter-stage .paper { background: #fff; box-shadow: var(--shadow-8); max-width: 8.5in; margin: 0 auto 24px; overflow-x: auto; }
+    .letter-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; max-width: 8.5in; margin: 0 auto 18px; }
+    .letter-bar .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .letter-bar .tabs button { font: 600 .9rem/1 var(--font); padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line-2); background: #fff; cursor: pointer; }
+    .letter-bar .tabs button[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .sample-banner { max-width: 8.5in; margin: 0 auto 18px; background: #fde7e9; color: #8e1b1b; border-radius: var(--radius-sm); padding: 12px 16px; font-size: .95rem; }
+    @media (max-width: 700px) { .letter-stage .letter { padding: 28px 20px; font-size: 10.5pt; } .letter-stage .lh { flex-direction: column-reverse; } }
+    @media print {
+      .site-header, .site-footer, .page-hero, .letter-bar, .sample-banner { display: none !important; }
+      body, .letter-stage { background: #fff; padding: 0; }
+      .letter-stage .paper { box-shadow: none; margin: 0; max-width: none; }
+      .paper + .paper { break-before: page; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header id="site-header"></header>
+  <main id="main">
+    <section class="page-hero" style="padding-bottom:36px">
+      <div class="wrap">
+        <span class="eyebrow">For states · Sample</span>
+        <h1>The letter a resident receives</h1>
+        <p class="lead">When a state approves an application, the State Issuer Console prints this letter with the state's letterhead, the resident's activation code and the sticker set. Below is a sample with fictional details.</p>
+        <div class="actions"><a class="btn btn-primary" href="cosyne_contact.html?type=state">Request a state briefing</a><a class="btn btn-secondary" href="cosyne_states.html">The state program</a></div>
+      </div>
+    </section>
+    <section class="letter-stage">
+      <div class="wrap">
+        <div class="sample-banner" role="note"><b>Sample.</b> This is not an official letter. The resident, application, code and department shown are fictional; each state sets its own letterhead, signer and wording.</div>
+        <div class="letter-bar">
+          <div class="tabs" role="group" aria-label="Choose a letter">
+            <button data-doc="approval" aria-pressed="true">Approval letter</button>
+            <button data-doc="guide" aria-pressed="false">Enclosure guide</button>
+            <button data-doc="received" aria-pressed="false">Application received</button>
+            <button data-doc="declined" aria-pressed="false">Not approved</button>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="print()">Print or save as PDF</button>
+        </div>
+        <div id="docs"></div>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="site/site.js"></script>
+  <script type="module">
+    import { LETTER_CSS, approvalLetter, enclosureGuide, receivedNotice, declinedNotice } from './lib/letters.js';
+    document.head.insertAdjacentHTML('beforeend', `<style>${LETTER_CSS}</style>`);
+    const year = (d) => new Date(d.getFullYear() + 1, d.getMonth(), d.getDate()).toISOString();
+    const now = new Date();
+    const app = {
+      id: 'APP-SAMPLE01', jurisdiction: 'ST', issuedAt: now.toISOString(), submittedAt: new Date(now - 9 * 86400_000).toISOString(), expiresAt: year(now),
+      activationCode: 'SAMPLE1234', declineReason: 'No REAL ID-compliant license on file',
+      applicant: { name: 'Jordan Rivera', address: { street: '1200 Example Avenue', city: 'Anytown', state: 'ST', zip: '00000', county: 'Sample' } },
+      vehicle: { plate: 'SAMPLE', year: 2021, make: 'Toyota', model: 'Camry' },
+    };
+    const d = {
+      app, sample: true, jurisdictionName: '[State name]', fee: 24.99, stateShare: 9.5, adminFee: 15.49, stateShareRate: 0.38,
+      settings: { departmentName: 'Department of Motor Vehicles', officeAddress: '100 Capitol Way, Capital City, ST 00000', phone: '(555) 010-0100', website: 'dmv.example.gov/cosyne', signerName: 'Program Director', signerTitle: 'CO-SYNE Verified Roadside Program' },
+    };
+    const DOCS = { approval: approvalLetter, guide: enclosureGuide, received: receivedNotice, declined: declinedNotice };
+    const show = (k) => {
+      document.getElementById('docs').innerHTML = `<div class="paper">${DOCS[k](d)}</div>`;
+      document.querySelectorAll('[data-doc]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.doc === k)));
+    };
+    document.querySelectorAll('[data-doc]').forEach((b) => { b.onclick = () => show(b.dataset.doc); });
+    show('approval');
+  </script>
+</body>
+</html>

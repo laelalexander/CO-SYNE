@@ -77,7 +77,7 @@ test('admin overview, credential registry, revoke and reinstate', async () => {
   assert.equal(o.system.persistent, true);
   assert.equal(o.counts.devices.driver, 1);
   assert.equal(o.ledger.ok, true);
-  assert.deepEqual(o.modules.map((m) => m.id), ['driver', 'officer', 'dispatch']);
+  assert.deepEqual(o.modules.map((m) => m.id), ['driver', 'officer', 'dispatch', 'state']);
   assert.ok(o.warnings.some((w) => /TURN/.test(w.text)));
 
   const { body: list } = await api('GET', '/api/admin/credentials', null, token);
@@ -124,7 +124,7 @@ test('broadcast reaches the chosen audience, pinned notices reach later sign-ins
 test('modules: list, launchers and QR codes point at the public URL', async () => {
   const { body: mods } = await api('GET', '/api/modules');
   assert.equal(mods.base, 'https://example.test/cosyne');
-  assert.equal(mods.modules.length, 3);
+  assert.equal(mods.modules.length, 4);
   assert.equal(mods.modules[0].installUrl, 'https://example.test/cosyne/driver/?install=1');
 
   const cmd = await api('GET', '/downloads/CO-SYNE-Officer-Terminal-Kiosk.cmd');
@@ -172,7 +172,7 @@ test('website: contact form leads, rate limit, admin list, and the .php link', a
   const php = await fetch(base + '/cosyne_index.php?x=1', { redirect: 'manual' });
   assert.equal(php.status, 301);
   assert.equal(php.headers.get('location'), 'cosyne_index.html?x=1');
-  for (const p of ['/cosyne_index.html', '/cosyne_drivers.html', '/cosyne_agencies.html', '/cosyne_platform.html', '/cosyne_security.html', '/cosyne_contact.html', '/cosyne_credits.html', '/cosyne_investors.html', '/cosyne_strategy.html', '/cosyne_thesis.html', '/site/deck.js', '/site/site.css', '/site/site.js']) {
+  for (const p of ['/cosyne_index.html', '/cosyne_drivers.html', '/cosyne_agencies.html', '/cosyne_platform.html', '/cosyne_security.html', '/cosyne_contact.html', '/cosyne_credits.html', '/cosyne_investors.html', '/cosyne_strategy.html', '/cosyne_thesis.html', '/cosyne_states.html', '/cosyne_state_briefing.html', '/cosyne_state_letter.html', '/cosyne_apply.html', '/state/', '/state/state.js', '/lib/letters.js', '/site/deck.js', '/site/site.css', '/site/site.js']) {
     assert.equal((await fetch(base + p)).status, 200, p);
   }
   const img = await fetch(base + '/site/img/dispatch-map.jpg');

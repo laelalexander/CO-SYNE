@@ -14,7 +14,7 @@ bar.insertAdjacentHTML('beforeend', `<span class="dots">${slides.map((_, n) => `
   <button id="d-next" aria-label="Next slide">${icon('chevronRight')}</button>
   <button id="d-play" aria-label="Play">${icon('activity')}</button>
   <button id="d-full" aria-label="Full screen">${icon('square')}</button>
-  <a class="dbtn" href="cosyne_investors.html" aria-label="Close presentation">${icon('x')}</a>`);
+  <a class="dbtn" href="${bar.dataset.close ?? 'cosyne_investors.html'}" aria-label="Close presentation">${icon('x')}</a>`);
 
 function show(n) {
   i = (n + slides.length) % slides.length;

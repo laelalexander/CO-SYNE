@@ -1,6 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,7 @@ import { nonce as makeNonce, randomId, sha256, verifyText } from './crypto.js';
 import { IdentityService, loadKeystore, publicProfile } from './identity.js';
 import { Ledger } from './ledger.js';
 import { PushService } from './push.js';
+import { ProgramService } from './program.js';
 import { aiRoutingEnabled, classifyWithClaude, classifyWithRules, haversineKm, selectCenter, selectUnits } from './routing.js';
 import { BEATS, CENTERS, REGION, seedUnits } from './seed.js';
 import { loadSamples, officerIssuer, recordsCheck, STOP_REASONS } from './samples.js';
@@ -23,7 +24,7 @@ const JSQR_DIR = path.join(here, '..', 'node_modules', 'jsqr', 'dist');
 const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const ALERT_STATUSES = ['new', 'dispatched', 'acknowledged', 'en_route', 'on_scene', 'resolved', 'cancelled'];
 const UNIT_STATUSES = ['available', 'en_route', 'on_scene', 'busy', 'out_of_service'];
-const APPS = ['driver', 'officer', 'dispatch', 'admin', 'downloads'];
+const APPS = ['driver', 'officer', 'dispatch', 'admin', 'downloads', 'state'];
 const NOTICE_LEVELS = ['info', 'warn', 'critical'];
 const AUDIENCES = ['all', 'driver', 'officer', 'dispatch'];
 const normalize = (v) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -38,6 +39,8 @@ export const MODULES = [
     summary: "The patrol vehicle's console: sticker scanner, stop console with live video, records lookup, map, CAD calls, eCitations, reports, and evidence." },
   { id: 'dispatch', name: 'CO-SYNE Dispatch', file: 'CO-SYNE-Dispatch', device: 'Communications center', window: '1600,960',
     summary: 'The network operations console: every stop, call, unit, and device live on the map, drop-in video, assignments, records, and the evidence ledger.' },
+  { id: 'state', name: 'CO-SYNE State Issuer Console', file: 'CO-SYNE-State-Console', device: 'State DMV / DOT office', window: '1440,900',
+    summary: 'For state DMVs, DOTs and federal partners: review applications, check REAL ID records, issue credentials and sticker sets, print letters, manage renewals and see the revenue split.' },
 ];
 
 // The git commit this server was deployed from (a plain clone has no tooling).
@@ -396,6 +399,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     if (body.stickerId) {
       sticker = stickers.get(body.stickerId);
       if (!sticker) throw new HttpError(404, 'sticker not registered with CO-SYNE');
+      if (sticker.pending) throw new HttpError(409, 'this sticker has not been activated by the driver yet; look the vehicle up by plate');
       const check = identity.verifyCredential(sticker.credential, 'driver');
       if (!check.ok) throw new HttpError(422, `sticker's driver credential is not valid: ${check.reason}`);
     }
@@ -815,7 +819,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   // ---------- website: contact and demo requests ----------
   // Leads are stored in data/leads.jsonl; the ledger only records that one
   // arrived, never who sent it.
-  const LEAD_TYPES = ['agency', 'dispatch', 'driver', 'hardware', 'partner', 'investor', 'press', 'other'];
+  const LEAD_TYPES = ['agency', 'dispatch', 'driver', 'hardware', 'partner', 'investor', 'state', 'press', 'other'];
   const leadsFile = dataDir ? path.join(dataDir, 'leads.jsonl') : null;
   const leads = leadsFile && fs.existsSync(leadsFile) ? fs.readFileSync(leadsFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
   const leadHits = new Map(); // ip -> [timestamps]
@@ -845,6 +849,340 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     return { ok: true, id: lead.id };
   });
   route('GET', '/api/admin/leads', ({ req }) => { adminFrom(req); return { leads: leads.slice().reverse() }; });
+
+  // ---------- state CO-SYNE program: applications, REAL ID check, issuance ----------
+  // Each participating state is a driver-credential issuer in the trust
+  // registry. Its staff use the State Issuer Console (role 'state').
+  const program = new ProgramService({
+    dataDir, env,
+    jurisdictions: identity.trustRegistry().filter((i) => i.issues === 'driver' && i.jurisdiction).map((i) => ({ code: i.jurisdiction, name: i.jurisdictionName, issuerId: i.id, issuerName: i.name, demo: i.demo })),
+    samples: samples.drivers.map((d) => d.credential.subject),
+  });
+  // STATE_ISSUER_TOKEN opens every jurisdiction; STATE_ISSUER_TOKENS ("OK:code,TX:code")
+  // gives each state its own code. Without either, the demo code works in demo mode.
+  const stateTokens = [];
+  if (env.STATE_ISSUER_TOKEN) stateTokens.push({ token: env.STATE_ISSUER_TOKEN, jurisdictions: null });
+  for (const pair of String(env.STATE_ISSUER_TOKENS ?? '').split(',').filter(Boolean)) {
+    const [code, token] = pair.split(':');
+    if (code && token) stateTokens.push({ token, jurisdictions: [code.trim().toUpperCase()] });
+  }
+  if (!stateTokens.length && demoEnabled) stateTokens.push({ token: 'state-demo', jurisdictions: null });
+  const DAY = 86400_000;
+
+  // A sticker set issued before the resident activated the app has no
+  // credential yet; scanning it tells the officer to look up by plate.
+  function registerPendingSticker(app) {
+    stickers.set(app.stickerId, { stickerId: app.stickerId, code: app.stickerId.slice(4, 10).toUpperCase(), plate: app.vehicle.plate, state: app.jurisdiction, credential: null, pending: true });
+  }
+  for (const app of program.apps.values()) if (app.stickerId && !app.credentialId && ['issued', 'active'].includes(app.status)) registerPendingSticker(app);
+
+  function programSubject(app) {
+    const r = app.realId ?? {};
+    const a = app.applicant;
+    return {
+      name: a.name, dob: a.dob, licenseNumber: a.licenseNumber, licenseClass: r.licenseClass ?? 'D', licenseStatus: r.licenseStatus ?? 'valid', licenseExpires: r.licenseExpires ?? null,
+      restrictions: 'None', address: [a.address.street, a.address.city, `${a.address.state} ${a.address.zip}`].filter(Boolean).join(', '), phone: a.phone || undefined,
+      vehicle: { ...app.vehicle }, registrationStatus: 'valid', registrationExpires: new Date(Date.now() + 365 * DAY).toISOString().slice(0, 10),
+      insurance: 'active', insuranceCarrier: 'On file', accessibility: a.accessibility || undefined,
+      realId: true, jurisdiction: app.jurisdiction, program: 'CO-SYNE', enrollment: app.id,
+    };
+  }
+
+  // Signs a credential for the resident's device key and points the sticker at it.
+  function issueCredential(app, by, { ttlDays = 365 } = {}) {
+    const credential = identity.issue({ issuerId: app.issuerId, type: 'driver', subject: programSubject(app), subjectKey: app.publicJwk, ttlDays });
+    app.credentialId = credential.id;
+    app.expiresAt = credential.expiresAt;
+    registerSticker(app.stickerId, credential);
+    trackCredential(credential, 'program', app.stickerId);
+    saveRegistry();
+    ledger.append('credential_issued', { credentialId: credential.id, type: 'driver', issuer: app.issuerId, credHash: credHash(credential), program: true }, credential.id);
+    program.log(app, 'credential_issued', by, `Valid until ${credential.expiresAt.slice(0, 10)}`);
+    return credential;
+  }
+
+  const appView = (app, { staff } = {}) => {
+    const out = {
+      id: app.id, jurisdiction: app.jurisdiction, status: app.status, channel: app.channel, submittedAt: app.submittedAt, issuedAt: app.issuedAt, mailedAt: app.mailedAt,
+      expiresAt: app.expiresAt, stickerId: app.stickerId, credentialId: app.credentialId, declineReason: app.declineReason ?? null, realId: app.realId,
+      applicant: app.applicant, vehicle: app.vehicle, needsActivation: Boolean(app.stickerId && !app.credentialId),
+      expired: Boolean(app.expiresAt && Date.parse(app.expiresAt) < Date.now()), infoNeeded: app.infoNeeded ?? null,
+      payments: program.payments.filter((p) => p.applicationId === app.id).map(({ id, at, kind, amount, confirmation }) => ({ id, at, kind, amount, confirmation })),
+    };
+    if (staff) { out.history = app.history; out.activationCode = app.activationCode; out.hasDeviceKey = Boolean(app.publicJwk); out.letter = program.settingsFor(app.jurisdiction); }
+    return out;
+  };
+  const getApp = (id) => { const a = program.get(id); if (!a) throw new HttpError(404, 'no such application'); return a; };
+  const applicantApp = (req, id) => {
+    const a = getApp(id);
+    if (!sameSecret(req.headers['x-application-token'], a.token)) throw new HttpError(403, 'not your application');
+    return a;
+  };
+  const stateFrom = (req, app) => {
+    const s = sessionFrom(req, { role: 'state' });
+    if (app && s.jurisdictions && !s.jurisdictions.includes(app.jurisdiction)) throw new HttpError(403, `not authorized for ${app.jurisdiction}`);
+    return s;
+  };
+  const by = (s) => `state:${s.profile.name}`;
+  const ledgerApp = (type, app, extra = {}) => ledger.append(type, { applicationId: app.id, jurisdiction: app.jurisdiction, ...extra }, app.id);
+
+  // Public: program terms and participating states
+  route('GET', '/api/program/info', () => ({
+    fee: program.fee, stateShareRate: program.stateShareRate, perPayment: { stateShare: program.split().stateShareRounded, adminFee: program.split().adminFeeRounded },
+    termDays: 365, jurisdictions: program.jurisdictions.map(({ code, name, issuerName, demo }) => ({ code, name, issuerName, demo: Boolean(demo) })),
+  }));
+  route('POST', '/api/program/apply', ({ req, body }) => {
+    const ip = clientIp(req);
+    const recent = (leadHits.get(`apply:${ip}`) ?? []).filter((t) => Date.now() - t < 3600_000);
+    if (recent.length >= 10) throw new HttpError(429, 'too many applications from this address; please try again later');
+    let app;
+    try { app = program.apply(body); } catch (err) { throw new HttpError(err.status ?? 400, err.message); }
+    recent.push(Date.now()); leadHits.set(`apply:${ip}`, recent);
+    ledgerApp('program_application_submitted', app, { channel: app.channel });
+    return { ...appView(app), token: app.token, receipt: { authorized: program.fee, charged: 0, note: 'Your card is charged only if your enrollment is approved.', simulated: true } };
+  });
+  // Applicant: status (and the credential once issued for their device key)
+  route('GET', '/api/program/applications/:id', ({ req, params }) => {
+    const app = applicantApp(req, params.id);
+    const out = appView(app);
+    if (app.credentialId) out.credential = credentials.get(app.credentialId)?.credential ?? null;
+    return out;
+  });
+  route('POST', '/api/program/applications/:id/renew', ({ req, params, body }) => {
+    const app = applicantApp(req, params.id);
+    if (!['issued', 'active'].includes(app.status) || !app.credentialId) throw new HttpError(409, 'only an issued enrollment can be renewed');
+    const remainingDays = Math.max(0, (Date.parse(app.expiresAt) - Date.now()) / DAY);
+    if (remainingDays > 60) throw new HttpError(409, 'renewal opens 60 days before expiry');
+    const pay = program.recordPayment(app, 'renewal', body.payment);
+    ledgerApp('program_payment', app, { kind: 'renewal', amount: pay.amount, stateShare: pay.stateShare, adminFee: pay.adminFee, county: pay.county, simulated: true });
+    issueCredential(app, 'applicant', { ttlDays: remainingDays + 365 });
+    program.log(app, 'renewed', 'applicant', `Paid $${pay.amount} · ${pay.confirmation}`);
+    ledgerApp('program_renewed', app);
+    program.save();
+    return { ...appView(app), credential: credentials.get(app.credentialId).credential, receipt: { confirmation: pay.confirmation, amount: pay.amount, simulated: true } };
+  });
+  // Resident who applied on the web activates with the code in their letter.
+  route('POST', '/api/program/activate', ({ req, body }) => {
+    const code = String(body.code ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const ip = clientIp(req);
+    const tries = (leadHits.get(`activate:${ip}`) ?? []).filter((t) => Date.now() - t < 3600_000);
+    if (tries.length >= 20) throw new HttpError(429, 'too many attempts; please try again later');
+    tries.push(Date.now()); leadHits.set(`activate:${ip}`, tries);
+    const app = code.length >= 8 ? [...program.apps.values()].find((a) => a.activationCode === code) : null;
+    if (!app) throw new HttpError(404, 'activation code not recognized');
+    const pk = body.publicJwk;
+    if (!(pk?.kty === 'OKP' && pk.crv === 'Ed25519' && typeof pk.x === 'string')) throw new HttpError(400, 'invalid device key');
+    app.publicJwk = { kty: 'OKP', crv: 'Ed25519', x: pk.x };
+    app.activationCode = null;
+    const credential = issueCredential(app, 'applicant');
+    program.log(app, 'activated', 'applicant', 'Activated in the Driver app');
+    ledgerApp('program_activated', app);
+    program.save();
+    return { ...appView(app), credential, token: app.token };
+  });
+
+  // State Issuer Console
+  route('POST', '/api/state/login', ({ req, body }) => {
+    if (!stateTokens.length) throw new HttpError(403, 'state console is disabled: set STATE_ISSUER_TOKEN on the server');
+    const ip = clientIp(req);
+    const f = loginFailures.get(ip);
+    if (f && Date.now() - f.since > 15 * 60_000) loginFailures.delete(ip);
+    if ((loginFailures.get(ip)?.count ?? 0) >= 10) throw new HttpError(429, 'too many failed sign-ins; try again in 15 minutes');
+    const match = stateTokens.find((t) => sameSecret(body.token, t.token));
+    if (!match) {
+      const cur = loginFailures.get(ip) ?? { count: 0, since: Date.now() };
+      cur.count++; loginFailures.set(ip, cur);
+      ledger.append('state_sign_in_failed', { ip }, 'state');
+      throw new HttpError(403, 'invalid issuer access code');
+    }
+    loginFailures.delete(ip);
+    const name = String(body.name ?? '').trim().slice(0, 60) || 'Program staff';
+    const token = newSession({ role: 'state', label: `State · ${name}`, profile: { name }, jurisdictions: match.jurisdictions, since: new Date().toISOString() });
+    ledger.append('state_signed_in', { name, jurisdictions: match.jurisdictions ?? 'all' }, 'state');
+    return { token, name, jurisdictions: (match.jurisdictions ?? program.jurisdictions.map((j) => j.code)) };
+  });
+  const scoped = (s) => [...program.apps.values()].filter((a) => !s.jurisdictions || s.jurisdictions.includes(a.jurisdiction));
+  route('GET', '/api/state/overview', ({ req, url }) => {
+    const s = stateFrom(req);
+    const j = url.searchParams.get('jurisdiction') || null;
+    const apps = scoped(s).filter((a) => !j || a.jurisdiction === j);
+    const counts = Object.fromEntries(['submitted', 'verified', 'approved', 'issued', 'active', 'declined', 'revoked'].map((k) => [k, apps.filter((a) => a.status === k).length]));
+    const now = Date.now();
+    return {
+      counts, expired: apps.filter((a) => a.expiresAt && Date.parse(a.expiresAt) < now && ['issued', 'active'].includes(a.status)).length,
+      renewalsDue: apps.filter((a) => a.expiresAt && ['issued', 'active'].includes(a.status) && Date.parse(a.expiresAt) - now < 60 * DAY).length,
+      awaitingPrint: apps.filter((a) => a.status === 'issued').length,
+      revenue: program.revenue({ jurisdiction: j }).totals, fee: program.fee, stateShareRate: program.stateShareRate,
+      jurisdictions: program.jurisdictions.filter((x) => !s.jurisdictions || s.jurisdictions.includes(x.code)),
+    };
+  });
+  route('GET', '/api/state/applications', ({ req, url }) => {
+    const s = stateFrom(req);
+    const st = url.searchParams.get('status'); const j = url.searchParams.get('jurisdiction'); const q = String(url.searchParams.get('q') ?? '').toLowerCase();
+    const list = scoped(s).filter((a) => (!st || a.status === st) && (!j || a.jurisdiction === j)
+      && (!q || [a.id, a.applicant.name, a.applicant.licenseNumber, a.vehicle.plate, a.applicant.address.county].some((v) => String(v ?? '').toLowerCase().includes(q))));
+    return { applications: list.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).map((a) => appView(a, { staff: true })) };
+  });
+  route('GET', '/api/state/applications/:id', ({ req, params }) => { const a = getApp(params.id); stateFrom(req, a); return appView(a, { staff: true }); });
+  route('POST', '/api/state/applications/:id/verify', ({ req, params }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    if (!['submitted', 'verified'].includes(a.status)) throw new HttpError(409, `application is ${a.status}`);
+    const r = program.checkIdentity(a, by(s));
+    ledgerApp('program_identity_checked', a, { ok: r.ok, realId: r.realId, simulated: true });
+    return appView(a, { staff: true });
+  });
+  route('POST', '/api/state/applications/:id/approve', ({ req, params }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    if (!a.realId?.ok) throw new HttpError(409, 'only residents with a verified REAL ID-compliant license can be approved');
+    if (a.status !== 'verified') throw new HttpError(409, `application is ${a.status}`);
+    a.status = 'approved';
+    const pay = program.recordPayment(a, 'enrollment', a.payment);
+    program.log(a, 'approved', by(s), `Fee charged: ${pay.amount} · ${pay.confirmation}`);
+    ledgerApp('program_approved', a);
+    ledgerApp('program_payment', a, { kind: 'enrollment', amount: pay.amount, stateShare: pay.stateShare, adminFee: pay.adminFee, county: pay.county, simulated: true });
+    program.save();
+    return appView(a, { staff: true });
+  });
+  route('POST', '/api/state/applications/:id/decline', ({ req, params, body }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    try { program.decline(a, by(s), body.reason); } catch (err) { throw new HttpError(err.status ?? 400, err.message); }
+    ledgerApp('program_declined', a);
+    return appView(a, { staff: true });
+  });
+  route('POST', '/api/state/applications/:id/note', ({ req, params, body }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    a.infoNeeded = String(body.text ?? '').trim().slice(0, 400) || null;
+    program.log(a, a.infoNeeded ? 'info_requested' : 'info_cleared', by(s), a.infoNeeded);
+    program.save();
+    return appView(a, { staff: true });
+  });
+  route('GET', '/api/state/settings/:code', ({ req, params }) => {
+    const s = stateFrom(req, { jurisdiction: params.code });
+    return { code: params.code, settings: program.settingsFor(params.code), jurisdiction: program.jurisdiction(params.code) };
+  });
+  route('POST', '/api/state/settings/:code', ({ req, params, body }) => {
+    const s = stateFrom(req, { jurisdiction: params.code });
+    if (!program.jurisdiction(params.code)) throw new HttpError(404, 'unknown jurisdiction');
+    ledger.append('state_settings_updated', { jurisdiction: params.code, by: s.profile.name }, 'state');
+    return { code: params.code, settings: program.updateSettings(params.code, body) };
+  });
+  route('POST', '/api/state/applications/:id/issue', ({ req, params }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    if (a.status !== 'approved') throw new HttpError(409, 'approve the application first');
+    a.stickerId = randomId('stk', 6);
+    if (a.publicJwk) issueCredential(a, by(s));
+    else {
+      // Applied on the web: the letter carries an activation code for the app.
+      a.activationCode = randomBytes(5).toString('hex').toUpperCase();
+      registerPendingSticker(a);
+    }
+    a.status = 'issued';
+    a.issuedAt = new Date().toISOString();
+    program.log(a, 'sticker_set_issued', by(s), `Sticker ${a.stickerId.slice(4, 10).toUpperCase()}: bumper sticker, window sticker and plate tag`);
+    ledger.append('sticker_issued', { stickerId: a.stickerId, credentialId: a.credentialId, plate: a.vehicle.plate, program: true }, a.credentialId ?? a.id);
+    program.save();
+    return appView(a, { staff: true });
+  });
+  route('POST', '/api/state/applications/:id/mailed', ({ req, params }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    if (a.status !== 'issued') throw new HttpError(409, `application is ${a.status}`);
+    a.status = 'active'; a.mailedAt = new Date().toISOString();
+    program.log(a, 'mailed', by(s), 'Letter and sticker set mailed');
+    ledgerApp('program_mailed', a);
+    program.save();
+    if (a.credentialId) push.send(a.credentialId, { kind: 'notice', tag: `mail-${a.id}`, url: 'driver/?tab=me', title: 'Your CO-SYNE stickers are on the way', body: 'Your bumper sticker, window sticker and plate tag were mailed today.' }).catch(() => {});
+    return appView(a, { staff: true });
+  });
+  route('POST', '/api/state/applications/:id/revoke', ({ req, params, body }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    if (!['issued', 'active'].includes(a.status)) throw new HttpError(409, `application is ${a.status}`);
+    const reason = String(body.reason ?? 'revoked by the state').slice(0, 200);
+    if (a.credentialId) revokeCredential(a.credentialId, reason, by(s));
+    if (a.stickerId) stickers.delete(a.stickerId);
+    const rec = a.credentialId && credentials.get(a.credentialId);
+    if (rec) { rec.stickerId = null; saveRegistry(); }
+    a.status = 'revoked'; a.activationCode = null;
+    program.log(a, 'revoked', by(s), reason);
+    ledgerApp('program_revoked', a);
+    program.save();
+    return appView(a, { staff: true });
+  });
+  // Lost or damaged sticker, new plate or vehicle: a new sticker set; the old QR stops working.
+  route('POST', '/api/state/applications/:id/reissue', ({ req, params, body }) => {
+    const a = getApp(params.id); const s = stateFrom(req, a);
+    if (!['issued', 'active'].includes(a.status)) throw new HttpError(409, `application is ${a.status}`);
+    const reason = ['lost_sticker', 'damaged', 'new_plate', 'new_vehicle'].includes(body.reason) ? body.reason : 'lost_sticker';
+    const old = a.stickerId;
+    if (old) { stickers.delete(old); const oldRec = a.credentialId && credentials.get(a.credentialId); if (oldRec) oldRec.stickerId = null; }
+    const v = body.vehicle ?? {};
+    const vehicleChanged = ['new_plate', 'new_vehicle'].includes(reason);
+    if (vehicleChanged) {
+      const plate = String(v.plate ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (plate.length < 2) throw new HttpError(400, 'enter the new license plate');
+      a.vehicle = { ...a.vehicle, plate, ...(reason === 'new_vehicle' ? { year: Number(v.year) || null, make: String(v.make ?? '').slice(0, 40), model: String(v.model ?? '').slice(0, 40), color: String(v.color ?? '').slice(0, 30), vin: String(v.vin ?? '').slice(0, 17).toUpperCase() } : {}) };
+    }
+    a.stickerId = randomId('stk', 6);
+    if (a.credentialId) {
+      const prev = a.credentialId;
+      if (vehicleChanged) {
+        const remaining = Math.max(1, (Date.parse(a.expiresAt) - Date.now()) / DAY);
+        issueCredential(a, by(s), { ttlDays: remaining });
+        revokeCredential(prev, 'reissued for a new vehicle or plate', by(s));
+      } else {
+        const credential = credentials.get(prev).credential;
+        registerSticker(a.stickerId, credential);
+        credentials.get(prev).stickerId = a.stickerId;
+        saveRegistry();
+      }
+    } else registerPendingSticker(a);
+    a.status = 'issued'; a.mailedAt = null;
+    program.log(a, 'reissued', by(s), `${reason.replace('_', ' ')} · old sticker ${old ? old.slice(4, 10).toUpperCase() : '—'} voided`);
+    ledgerApp('program_reissued', a, { reason, voidedSticker: old });
+    program.save();
+    return appView(a, { staff: true });
+  });
+  route('POST', '/api/state/applications/:id/remind', ({ req, params }) => {
+    const a = getApp(params.id); stateFrom(req, a);
+    if (!a.credentialId) throw new HttpError(409, 'no credential to remind about');
+    return push.send(a.credentialId, renewalNotice(a)).then((delivered) => ({ delivered }));
+  });
+  route('GET', '/api/state/renewals', ({ req }) => {
+    const s = stateFrom(req);
+    return { renewals: program.dueForRenewal(60).filter((a) => !s.jurisdictions || s.jurisdictions.includes(a.jurisdiction)).sort((x, y) => x.expiresAt.localeCompare(y.expiresAt)).map((a) => appView(a, { staff: true })) };
+  });
+  route('GET', '/api/state/revenue', ({ req, url }) => {
+    const s = stateFrom(req);
+    const j = url.searchParams.get('jurisdiction') || (s.jurisdictions?.length === 1 ? s.jurisdictions[0] : null);
+    if (j && s.jurisdictions && !s.jurisdictions.includes(j)) throw new HttpError(403, `not authorized for ${j}`);
+    const r = program.revenue({ jurisdiction: j });
+    if (url.searchParams.get('format') === 'csv') {
+      const head = 'date,payment,application,kind,jurisdiction,county,amount,state_share,program_administration,confirmation';
+      const lines = r.payments.map((p) => [p.at, p.id, p.applicationId, p.kind, p.jurisdiction, `"${String(p.county).replace(/"/g, '""')}"`, p.amount.toFixed(2), p.stateShare.toFixed(4), p.adminFee.toFixed(4), p.confirmation].join(','));
+      return { raw: { type: 'text/csv; charset=utf-8', filename: `cosyne-revenue-${j ?? 'all'}-${new Date().toISOString().slice(0, 10)}.csv`, body: [head, ...lines].join('\n') + '\n' } };
+    }
+    const { payments, ...rest } = r;
+    return { ...rest, recent: payments.slice(-50).reverse() };
+  });
+  route('GET', '/api/state/issuers', ({ req }) => { stateFrom(req); return { issuers: identity.trustRegistry() }; });
+
+  // Renewal reminders 30 and 7 days before expiry, as phone notifications.
+  const renewalNotice = (a) => ({ kind: 'notice', tag: `renew-${a.id}`, url: 'driver/?tab=me', title: 'Renew your CO-SYNE membership', body: `Your membership expires ${a.expiresAt.slice(0, 10)}. Renew in the Driver app for $${program.fee} a year.` });
+  function sendRenewalReminders() {
+    const now = Date.now();
+    for (const a of program.dueForRenewal(30, now)) {
+      if (!a.credentialId) continue;
+      const days = (Date.parse(a.expiresAt) - now) / DAY;
+      const step = days <= 7 ? '7' : '30';
+      a.reminders ??= {};
+      if (a.reminders[`${a.expiresAt}:${step}`]) continue;
+      a.reminders[`${a.expiresAt}:${step}`] = new Date().toISOString();
+      push.send(a.credentialId, renewalNotice(a)).catch(() => {});
+    }
+    program.save();
+  }
+  const reminderTimer = setInterval(sendRenewalReminders, 6 * 3600_000);
+  reminderTimer.unref?.();
+
 
   // ---------- Web Push (driver phones) ----------
   route('GET', '/api/push/key', () => ({ publicKey: push.vapid.publicKey }));
@@ -951,7 +1289,8 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
         credentials: { driver: creds.filter((c) => c.type === 'driver').length, officer: creds.filter((c) => c.type === 'officer').length, revoked: creds.filter((c) => c.status === 'revoked').length, stickers: stickers.size },
       },
       ledger: { ...ledger.verify(), entries: ledger.entries.length },
-      modules: MODULES.map((m) => ({ id: m.id, name: m.name, online: byRole(m.id) })),
+      modules: MODULES.map((m) => ({ id: m.id, name: m.name, online: m.id === 'state' ? [...sessions.values()].filter((x) => x.role === 'state' && Date.now() - Date.parse(x.since) < 12 * 3600_000).length : byRole(m.id) })),
+      program: { counts: program.counts(), revenue: program.revenue().totals, fee: program.fee, stateShareRate: program.stateShareRate, jurisdictions: program.jurisdictions.map(({ code, name, issuerName, demo }) => ({ code, name, issuerName, demo: Boolean(demo), applications: [...program.apps.values()].filter((x) => x.jurisdiction === code).length, revenue: program.revenue({ jurisdiction: code }).totals })) },
       issuers: identity.trustRegistry(),
       centers: CENTERS,
       notices: notices.slice(-20).reverse(),
@@ -1030,6 +1369,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
         { key: 'ADMIN_TOKEN', value: set('ADMIN_TOKEN') ? 'set' : demoEnabled ? 'demo default' : 'not set (admin disabled)', secret: true, note: 'Main admin console access code' },
         { key: 'DISPATCH_TOKEN', value: set('DISPATCH_TOKEN') ? 'set' : 'demo default', secret: true, note: 'Dispatch console access code' },
         { key: 'OFFICER_ENROLL_CODE', value: set('OFFICER_ENROLL_CODE') ? 'set' : 'demo default', secret: true, note: 'Agency enrollment code for officer credentials' },
+        { key: 'STATE_ISSUER_TOKEN(S)', value: set('STATE_ISSUER_TOKEN') || set('STATE_ISSUER_TOKENS') ? 'set' : demoEnabled ? 'demo default' : 'not set (state console disabled)', secret: true, note: 'State Issuer Console access code(s)' },
         { key: 'TURN_URLS / TURN_SECRET', value: set('TURN_URLS') && set('TURN_SECRET') ? env.TURN_URLS : 'not set', note: 'TURN relay for video across NAT and cellular' },
         { key: 'ICE_SERVERS', value: env.ICE_SERVERS ? 'custom' : 'Google STUN', note: 'Extra WebRTC ICE servers (JSON)' },
         { key: 'ANTHROPIC_API_KEY', value: aiClassify ? 'set (AI routing on)' : 'not set', secret: true, note: 'Claude second-pass triage' },
@@ -1368,7 +1708,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   }
 
   return {
-    server, secure: Boolean(tls), ledger, identity, units, alerts, stops, stickers, citations, reports, samples, push,
+    server, secure: Boolean(tls), ledger, identity, units, alerts, stops, stickers, citations, reports, samples, push, program,
     listen(port = 0, host) {
       return new Promise((resolve) => server.listen(port, host, () => resolve(server.address().port)));
     },

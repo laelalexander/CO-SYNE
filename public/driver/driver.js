@@ -152,9 +152,9 @@ async function onMessage(msg) {
     maybeAskPush();
   } else if (msg.t === 'disconnected') {
     setNet('reconnecting…', false);
-  } else if (msg.t === 'error' && msg.ref === 'hello') {
+  } else if (msg.t === 'error' && (msg.ref === 'hello' || msg.ref === 'revoked')) {
     setNet('sign-in failed', false);
-    toast(msg.error);
+    if (!(await recoverMembership())) toast(msg.error);
   } else if (msg.t === 'stop') {
     await onStop(msg.stop);
   } else if (msg.t === 'alert') {
@@ -220,7 +220,7 @@ function walletCard() {
   const s = subject();
   const cred = S.identity.credential;
   return `<div class="wallet" data-open-id>
-    <div class="w-top"><span>Oklahoma · Driver License</span><span>Class ${esc(s.licenseClass ?? 'D')}</span></div>
+    <div class="w-top"><span>${esc(S.trust.find((i) => i.id === cred.issuer)?.jurisdictionName ?? 'Oklahoma')} · Driver License</span><span>Class ${esc(s.licenseClass ?? 'D')}</span></div>
     <div class="row" style="margin-top:14px;gap:14px;flex-wrap:nowrap"><div class="w-photo">${esc(initials(s.name))}</div><div><div class="w-name" style="margin:0">${esc(s.name)}</div><div style="font-size:.8rem;color:#c9c3b3">DL ${esc(s.licenseNumber ?? '—')}</div></div></div>
     <div class="w-row"><div><span>DOB</span>${esc(s.dob ?? '—')}</div><div><span>Expires</span>${esc(s.licenseExpires ?? '—')}</div><div><span>Plate</span>${esc(fmtPlate(vehicle().plate))}</div></div>
     <div class="w-seal">${icon('shieldCheck')} Verified by ${esc(cred.issuerName)}</div>
@@ -396,6 +396,7 @@ function renderMe() {
     <div class="group"><div class="cell"><span class="avatar">${esc(initials(s.name))}</span><span class="grow"><b>${esc(s.name)}</b><span>${esc(s.address ?? '')}</span></span></div></div>
     <div class="group-title">Accessibility shared with officers</div>
     <div class="group"><div class="cell"><span class="ico-wrap">${icon('hand')}</span><span class="grow"><b>${esc(s.accessibility ? 'On your credential' : 'None on file')}</b><span>${esc(s.accessibility ?? 'Add notes such as hearing loss or a medical condition when you register.')}</span></span></div></div>
+    <div id="membership"></div>
     <div class="group-title">Vehicle sticker</div>
     <div class="group"><div class="cell" style="flex-direction:column;align-items:stretch;text-align:center">
       <img id="sticker-qr" src="${stickerQrSrc()}" alt="Sticker QR" style="width:150px;margin:6px auto">
@@ -410,12 +411,13 @@ function renderMe() {
     </div>
     <p class="tiny muted">CO-SYNE Driver · ${esc(S.config.pilot)} · credential ${esc(S.identity.credential.id)}</p>`;
   $('#notif').onclick = pushSheet;
+  renderMembership();
   cacheStickerQr();
   $('#signout').onclick = () => {
     if (!confirm('Remove your CO-SYNE ID from this phone?')) return;
     disablePush(S.session.api).finally(() => {
       try { localStorage.removeItem(qrKey()); } catch { /* ignore */ }
-      clearIdentity('driver'); S.session?.close(); location.reload();
+      writeJson(MEMBER_KEY, null); clearIdentity('driver'); S.session?.close(); location.reload();
     });
   };
 }
@@ -715,19 +717,174 @@ function closeSheet() { $('#sheet')?.remove(); }
 
 // ---------- onboarding ----------
 async function renderWelcome() {
+  const pending = loadApplication();
+  if (pending) { renderApplicationStatus(pending); return; }
   view.innerHTML = `<div class="onboard">
     <img class="logo" src="../icons/driver-192.png" alt="">
     <h1>Safer traffic stops,<br>verified both ways.</h1>
-    <p>CO-SYNE connects you to Tulsa officers and 911 with a verified digital ID.</p>
+    <p>CO-SYNE connects you to officers and 911 with a verified digital ID, issued by your state.</p>
     <div class="feature">${icon('shieldCheck')}<div><b>Know who's stopping you</b><span>See the officer's verified name, badge, and the reason before anyone approaches.</span></div></div>
     <div class="feature">${icon('video')}<div><b>Stay in your car</b><span>Talk with the officer by video and text from your seat.</span></div></div>
-    <div class="feature">${icon('siren')}<div><b>One-tap emergency</b><span>Your location and vehicle go straight to Tulsa 911.</span></div></div>
+    <div class="feature">${icon('siren')}<div><b>One-tap emergency</b><span>Your location and vehicle go straight to 911.</span></div></div>
     <div style="margin-top:auto;padding-top:20px" class="stack">
-      ${S.config?.demo ? '<button class="btn primary block pill-btn" id="w-demo">Use a pilot demo driver</button>' : ''}
-      <button class="btn block pill-btn" id="w-register">Register my license</button>
+      <button class="btn primary block pill-btn" id="w-apply">Apply for CO-SYNE</button>
+      <button class="btn block pill-btn" id="w-activate">Activate with a code</button>
+      ${S.config?.demo ? '<button class="btn block pill-btn" id="w-demo">Use a pilot demo driver</button>' : ''}
     </div></div>`;
   $('#w-demo')?.addEventListener('click', pickSample);
-  $('#w-register').onclick = registerForm;
+  $('#w-apply').onclick = applyForm;
+  $('#w-activate').onclick = activateForm;
+}
+
+// ---------- state program: apply, status, activation, renewal ----------
+const APP_KEY = 'cosyne:driver:application';
+const MEMBER_KEY = 'cosyne:driver:membership';
+const readJson = (k) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { return null; } };
+const writeJson = (k, v) => { try { if (v) localStorage.setItem(k, JSON.stringify(v)); else localStorage.removeItem(k); } catch { /* storage blocked */ } };
+const loadApplication = () => readJson(APP_KEY);
+async function programApi(method, path, body, appToken) {
+  const res = await fetch(url(path), { method, headers: { 'content-type': 'application/json', ...(appToken ? { 'x-application-token': appToken } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+const PROGRAM_STEPS = [['submitted', 'Application received'], ['verified', 'REAL ID identity verified'], ['approved', 'Approved · fee charged'], ['issued', 'Credential issued · stickers being prepared'], ['active', 'Stickers mailed']];
+
+async function applyForm() {
+  let info;
+  try { info = await programApi('GET', '/api/program/info'); } catch (e) { toast(e.message); return; }
+  const fee = money(info.fee);
+  sheet(`<h2>Apply for CO-SYNE</h2><p class="muted small">Your state confirms your identity against your REAL ID-compliant driver license, then mails your stickers and plate tag.</p>
+    <form id="apf">
+      <label>State</label><select name="jurisdiction" required>${info.jurisdictions.map((j) => `<option value="${esc(j.code)}">${esc(j.name)}${j.demo ? ' (demo)' : ''}</option>`).join('')}</select>
+      <label>Full name, as on your license</label><input name="name" required autocomplete="name">
+      <div class="row" style="flex-wrap:nowrap"><div class="grow"><label>Date of birth</label><input name="dob" type="date" required></div><div class="grow"><label>License number</label><input name="licenseNumber" required autocapitalize="characters"></div></div>
+      <label>Mailing address</label><input name="street" required autocomplete="street-address" placeholder="Street">
+      <div class="row" style="flex-wrap:nowrap"><div class="grow"><input name="city" required placeholder="City" autocomplete="address-level2"></div><div style="width:34%"><input name="zip" required placeholder="ZIP" inputmode="numeric" autocomplete="postal-code"></div></div>
+      <input name="county" required placeholder="County">
+      <div class="row" style="flex-wrap:nowrap"><div class="grow"><label>Email</label><input name="email" type="email" autocomplete="email"></div><div class="grow"><label>Phone</label><input name="phone" type="tel" autocomplete="tel"></div></div>
+      <label>Vehicle</label>
+      <div class="row" style="flex-wrap:nowrap"><div class="grow"><input name="plate" required placeholder="Plate" autocapitalize="characters"></div><div style="width:30%"><input name="year" inputmode="numeric" placeholder="Year"></div></div>
+      <div class="row" style="flex-wrap:nowrap"><div class="grow"><input name="make" placeholder="Make"></div><div class="grow"><input name="model" placeholder="Model"></div><div class="grow"><input name="color" placeholder="Color"></div></div>
+      <label>Accessibility notes for officers (optional)</label><input name="accessibility" placeholder="e.g. Deaf, prefers text; diabetic">
+      <div class="tile-card" style="margin-top:14px"><div class="spread"><span>Annual program fee</span><b style="font-size:1.2rem">${fee}</b></div>
+        <p class="tiny muted" style="margin:6px 0 0">Charged only if your enrollment is approved. ${money(info.perPayment.stateShare)} goes to the state and ${money(info.perPayment.adminFee)} covers program administration.</p></div>
+      <div class="pay-field"><label>Card number</label><input name="card" value="4242 4242 4242 4242" inputmode="numeric"></div>
+      <label class="check" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px"><input type="checkbox" name="consent" required style="width:auto;margin-top:3px"><span class="small">I agree to the program terms and privacy notice. My credential is bound to a key that stays on this phone.</span></label>
+      <p class="tiny muted">Pilot simulation: no card is charged.</p>
+      <button class="btn primary block pill-btn" style="margin-top:8px">Submit application</button>
+    </form>`);
+  $('#apf').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    const btn = e.target.querySelector('button'); btn.disabled = true;
+    try {
+      const keys = await generateHolderKeys();
+      const r = await programApi('POST', '/api/program/apply', {
+        jurisdiction: f.jurisdiction, consent: Boolean(f.consent), publicJwk: keys.publicJwk, payment: { last4: String(f.card).replace(/\D/g, '').slice(-4) },
+        applicant: { name: f.name, dob: f.dob, licenseNumber: f.licenseNumber, email: f.email, phone: f.phone, accessibility: f.accessibility, address: { street: f.street, city: f.city, county: f.county, zip: f.zip } },
+        vehicle: { plate: f.plate, year: f.year, make: f.make, model: f.model, color: f.color },
+      });
+      writeJson(APP_KEY, { id: r.id, token: r.token, jurisdiction: r.jurisdiction, ...keys });
+      closeSheet();
+      toast('Application submitted');
+      render();
+    } catch (err) { toast(err.message); btn.disabled = false; }
+  };
+}
+
+let statusTimer = null;
+async function renderApplicationStatus(pending) {
+  clearTimeout(statusTimer);
+  let st = null;
+  try { st = await programApi('GET', `/api/program/applications/${encodeURIComponent(pending.id)}`, null, pending.token); } catch { /* offline */ }
+  if (st?.credential) {
+    // Issued: this phone's key is in the credential. Become the driver.
+    writeJson(MEMBER_KEY, { id: pending.id, token: pending.token });
+    writeJson(APP_KEY, null);
+    useIdentity({ credential: st.credential, publicJwk: pending.publicJwk, privateJwk: pending.privateJwk, stickerId: st.stickerId });
+    toast('Your CO-SYNE credential is ready');
+    return;
+  }
+  const at = PROGRAM_STEPS.findIndex(([k]) => k === st?.status);
+  view.innerHTML = `<div class="onboard" style="text-align:left">
+    <img class="logo" src="../icons/driver-192.png" alt="" style="margin:0 0 12px">
+    <h1 style="font-size:1.6rem">Your CO-SYNE application</h1>
+    <p class="muted">Application ${esc(pending.id)} · ${esc(pending.jurisdiction)}</p>
+    ${st?.status === 'declined' ? `<div class="offline-card">${icon('x')}<div><b>Not approved</b><span>${esc(st.declineReason ?? 'Enrollment requires a current REAL ID-compliant license.')} You have not been charged.</span></div></div>`
+      : `<ul class="timeline" style="margin:10px 0 16px">${PROGRAM_STEPS.map(([k, label], i) => `<li class="${i < at || (i === at && k === 'active') ? 'done' : i === at ? 'now' : ''}"><span class="tdot"></span><span>${label}</span></li>`).join('')}</ul>
+        ${st?.infoNeeded ? `<div class="offline-card">${icon('message')}<div><b>More information needed</b><span>${esc(st.infoNeeded)}</span></div></div>` : ''}
+        <p class="small muted">We'll update this screen as your state reviews your application. Your card is charged only when it's approved.</p>`}
+    <div style="margin-top:auto;padding-top:20px" class="stack">
+      <button class="btn block pill-btn" id="as-refresh">Check again</button>
+      <button class="btn block pill-btn" id="as-cancel" style="color:var(--danger)">${st?.status === 'declined' ? 'Start over' : 'Remove this application from my phone'}</button>
+    </div></div>`;
+  $('#as-refresh').onclick = () => renderApplicationStatus(pending);
+  $('#as-cancel').onclick = () => { if (confirm('Remove this application from this phone?')) { writeJson(APP_KEY, null); render(); } };
+  if (st?.status !== 'declined') statusTimer = setTimeout(() => { if (!S.identity && loadApplication()) renderApplicationStatus(pending); }, 15_000);
+}
+
+function activateForm() {
+  sheet(`<h2>Activate with a code</h2><p class="muted small">If you applied online or at a state office, your approval letter has a one-time activation code. Entering it links your credential to this phone.</p>
+    <form id="acf"><label>Activation code</label><input name="code" required autocapitalize="characters" autocomplete="one-time-code" placeholder="e.g. A1B2C3D4E5" style="font-family:var(--mono);letter-spacing:2px">
+      <button class="btn primary block pill-btn" style="margin-top:14px">Activate</button></form>`);
+  $('#acf').onsubmit = async (e) => {
+    e.preventDefault();
+    const code = new FormData(e.target).get('code');
+    try {
+      const keys = await generateHolderKeys();
+      const r = await programApi('POST', '/api/program/activate', { code, publicJwk: keys.publicJwk });
+      writeJson(MEMBER_KEY, { id: r.id, token: r.token });
+      useIdentity({ credential: r.credential, ...keys, stickerId: r.stickerId });
+      toast('Activated. Your CO-SYNE credential is on this phone.');
+    } catch (err) { toast(err.message); }
+  };
+}
+
+// Membership card on the Me tab, with renewal.
+async function renderMembership() {
+  const el = $('#membership');
+  const m = readJson(MEMBER_KEY);
+  if (!el || !m) return;
+  let st;
+  try { st = await programApi('GET', `/api/program/applications/${encodeURIComponent(m.id)}`, null, m.token); } catch { return; }
+  if (st.credential && st.credential.id !== S.identity?.credential?.id) adoptCredential(st);
+  const days = st.expiresAt ? Math.ceil((Date.parse(st.expiresAt) - Date.now()) / 86400_000) : null;
+  const canRenew = days != null && days <= 60 && ['issued', 'active'].includes(st.status);
+  el.innerHTML = `<div class="group-title">CO-SYNE membership</div><div class="group">
+    <div class="cell"><span class="ico-wrap">${icon('id')}</span><span class="grow"><b>${st.status === 'revoked' ? 'Revoked' : days != null && days < 0 ? 'Expired' : 'Active'} · ${esc(st.jurisdiction)}</b><span>${st.expiresAt ? `${days < 0 ? 'Expired' : 'Valid until'} ${esc(st.expiresAt.slice(0, 10))}` : ''} · ${st.mailedAt ? 'stickers mailed ' + esc(st.mailedAt.slice(0, 10)) : 'stickers being prepared'}</span></span></div>
+    ${canRenew ? `<button class="cell" id="renew"><span class="ico-wrap" style="background:var(--brand-bg);color:var(--brand-2)">${icon('clock')}</span><span class="grow"><b>Renew for a year</b><span>Renewal opens 60 days before expiry</span></span>${icon('chevronRight')}</button>` : ''}
+  </div>`;
+  $('#renew')?.addEventListener('click', () => renewSheet(m, st));
+}
+function adoptCredential(st) {
+  S.identity = { ...S.identity, credential: st.credential, stickerId: st.stickerId };
+  saveIdentity('driver', S.identity);
+  connect();
+}
+async function renewSheet(m) {
+  const info = await programApi('GET', '/api/program/info');
+  sheet(`<h2>Renew CO-SYNE</h2><p class="muted small">Another year is added to your membership. Your stickers stay the same.</p>
+    <div class="tile-card spread"><span>Annual fee</span><b style="font-size:1.3rem">${money(info.fee)}</b></div>
+    <div class="pay-field"><label>Card number</label><input id="rn-card" value="4242 4242 4242 4242" inputmode="numeric"></div>
+    <p class="tiny muted">Pilot simulation: no card is charged.</p>
+    <button class="btn primary block pill-btn" id="rn-go">Pay ${money(info.fee)} and renew</button>`);
+  $('#rn-go').onclick = async () => {
+    try {
+      const r = await programApi('POST', `/api/program/applications/${encodeURIComponent(m.id)}/renew`, { payment: { last4: $('#rn-card').value.replace(/\D/g, '').slice(-4) } }, m.token);
+      closeSheet(); adoptCredential(r); toast(`Renewed until ${r.expiresAt.slice(0, 10)}`); render();
+    } catch (e) { toast(e.message); }
+  };
+}
+// Signed out because the state reissued, renewed or revoked: pick up what the state has now.
+async function recoverMembership() {
+  const m = readJson(MEMBER_KEY);
+  if (!m) return false;
+  try {
+    const st = await programApi('GET', `/api/program/applications/${encodeURIComponent(m.id)}`, null, m.token);
+    if (st.credential && st.credential.id !== S.identity?.credential?.id && st.status !== 'revoked') { adoptCredential(st); toast('Your updated CO-SYNE credential is on this phone'); return true; }
+  } catch { /* offline */ }
+  return false;
 }
 
 async function pickSample() {
@@ -748,37 +905,6 @@ function useIdentity(id) {
   closeSheet();
   S.tab = 'home';
   connect();
-}
-
-function registerForm() {
-  sheet(`<h2>Register your license</h2><p class="muted small">Pilot enrollment. In production, Service Oklahoma confirms your identity before issuing the credential.</p>
-    <form id="reg">
-      <label>Full name</label><input name="name" required placeholder="As on your license">
-      <div class="row" style="flex-wrap:nowrap"><div class="grow"><label>Date of birth</label><input name="dob" type="date" required></div><div class="grow"><label>License number</label><input name="licenseNumber" required placeholder="A123456789"></div></div>
-      <label>Address</label><input name="address" placeholder="Street, city">
-      <div class="row" style="flex-wrap:nowrap"><div class="grow"><label>Plate</label><input name="plate" required placeholder="ABC-123"></div><div class="grow"><label>Year</label><input name="year" inputmode="numeric" placeholder="2022"></div></div>
-      <div class="row" style="flex-wrap:nowrap"><div class="grow"><label>Make</label><input name="make" placeholder="Toyota"></div><div class="grow"><label>Model</label><input name="model" placeholder="Camry"></div><div class="grow"><label>Color</label><input name="color" placeholder="Silver"></div></div>
-      <label>Accessibility notes for officers (optional)</label><input name="accessibility" placeholder="e.g. hard of hearing, autism, diabetic">
-      <button class="btn primary block pill-btn" style="margin-top:14px">Create my CO-SYNE ID</button>
-    </form>`);
-  $('#reg').onsubmit = async (e) => {
-    e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
-    try {
-      const keys = await generateHolderKeys();
-      const subject = {
-        name: f.name, dob: f.dob, licenseNumber: f.licenseNumber.toUpperCase(), licenseClass: 'D', licenseStatus: 'valid', address: f.address,
-        licenseExpires: new Date(Date.now() + 4 * 365 * 86400_000).toISOString().slice(0, 10), restrictions: 'None',
-        vehicle: { year: Number(f.year) || null, make: f.make, model: f.model, color: f.color, plate: f.plate, state: 'OK' },
-        registrationStatus: 'valid', registrationExpires: new Date(Date.now() + 365 * 86400_000).toISOString().slice(0, 10),
-        insurance: 'active', insuranceCarrier: 'On file', insuranceExpires: new Date(Date.now() + 180 * 86400_000).toISOString().slice(0, 10),
-        accessibility: f.accessibility || undefined,
-      };
-      const { credential, stickerId } = await api('POST', '/api/enroll', { type: 'driver', subject, publicJwk: keys.publicJwk });
-      useIdentity({ credential, ...keys, stickerId });
-      toast('Your CO-SYNE ID is ready. Print your sticker from the Me tab.');
-    } catch (err) { toast(err.message); }
-  };
 }
 
 // Hooks for automated end-to-end tests.

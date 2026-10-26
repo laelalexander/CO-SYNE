@@ -252,7 +252,7 @@ a.card:hover, .card.hover:hover { box-shadow: var(--shadow-8); transform: transl
 
 /* footer */
 .site-footer { background: var(--bg-2); border-top: 1px solid var(--line); padding: 56px 0 28px; font-size: .9rem; color: var(--muted); }
-.foot-grid { display: grid; grid-template-columns: 1.4fr repeat(5, 1fr); gap: 28px; }
+.foot-grid { display: grid; grid-template-columns: 1.3fr repeat(6, 1fr); gap: 24px; }
 .foot-grid h4 { font-size: .92rem; color: var(--ink); margin-bottom: 12px; }
 .foot-grid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .foot-grid a { color: var(--muted); text-decoration: none; }

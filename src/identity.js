@@ -8,7 +8,10 @@ import { generateKeys, publicOnly, randomId, signText, verifyText } from './cryp
 export const DEFAULT_ISSUERS = [
   { id: 'tulsa-pd', name: 'Tulsa Police Department', kind: 'agency', issues: 'officer' },
   { id: 'tcso', name: 'Tulsa County Sheriff\'s Office', kind: 'agency', issues: 'officer' },
-  { id: 'service-ok', name: 'Service Oklahoma', kind: 'dmv', issues: 'driver' },
+  { id: 'service-ok', name: 'Service Oklahoma', kind: 'dmv', issues: 'driver', jurisdiction: 'OK', jurisdictionName: 'Oklahoma' },
+  // A second state so cross-state verification can be demonstrated. Federal
+  // partners (kind 'federal') can be added the same way as issuers or verifiers.
+  { id: 'tx-demo', name: 'State of Texas (demo issuer)', kind: 'dmv', issues: 'driver', jurisdiction: 'TX', jurisdictionName: 'Texas', demo: true },
 ];
 
 // Loads or creates the long-lived keys (ledger signer + demo issuers).
@@ -35,8 +38,8 @@ export class IdentityService {
   }
 
   trustRegistry() {
-    return [...this.issuers.values()].map(({ id, name, kind, issues, publicJwk }) => ({
-      id, name, kind, issues, publicJwk: publicOnly(publicJwk),
+    return [...this.issuers.values()].map(({ id, name, kind, issues, jurisdiction, jurisdictionName, demo, publicJwk }) => ({
+      id, name, kind, issues, jurisdiction: jurisdiction ?? null, jurisdictionName: jurisdictionName ?? null, demo: Boolean(demo), publicJwk: publicOnly(publicJwk),
     }));
   }
 
@@ -114,6 +117,9 @@ export function publicProfile(credential) {
     insurancePolicy: s.insurancePolicy,
     accessibility: s.accessibility,
     issuer: credential.issuerName,
+    jurisdiction: s.jurisdiction ?? s.vehicle?.state ?? null,
+    realId: s.realId ?? null,
+    program: s.program ? { enrollment: s.enrollment ?? null, expiresAt: credential.expiresAt } : null,
     credentialId: credential.id,
   };
 }

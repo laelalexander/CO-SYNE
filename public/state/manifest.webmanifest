@@ -1,0 +1,16 @@
+{
+  "id": "cosyne-state",
+  "name": "CO-SYNE State Issuer Console",
+  "short_name": "CO-SYNE State",
+  "description": "For state DMVs, DOTs and federal partners: applications, REAL ID checks, credential and sticker issuance, letters, renewals and revenue.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "../icons/state.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "../icons/state-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/state-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

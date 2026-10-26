@@ -84,7 +84,7 @@ async function refresh() {
 const VIEWS = [
   ['overview', 'Overview', 'activity'], ['modules', 'Modules & downloads', 'layers'], ['devices', 'Network devices', 'network'],
   ['credentials', 'Credentials', 'id'], ['agencies', 'Agencies & units', 'users'], ['operations', 'Operations', 'siren'],
-  ['ledger', 'Evidence ledger', 'database'], ['broadcast', 'System notices', 'bell'], ['leads', 'Website leads', 'message'], ['settings', 'Settings', 'settings'],
+  ['ledger', 'Evidence ledger', 'database'], ['broadcast', 'System notices', 'bell'], ['program', 'State program', 'id'], ['leads', 'Website leads', 'message'], ['settings', 'Settings', 'settings'],
 ];
 
 function render() {
@@ -320,16 +320,38 @@ const PAGES = {
     $$('[data-unpin]', page).forEach((b) => { b.onclick = async () => { try { await call('POST', `/api/admin/broadcast/${b.dataset.unpin}/unpin`); await refresh(); PAGES.broadcast(page); } catch (err) { toast(err.message); } }; });
   },
 
+  async program(page) {
+    await refresh();
+    const p = S.overview.program;
+    const c = p.counts;
+    const usd = (n) => `${Number(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const active = (c.issued ?? 0) + (c.active ?? 0);
+    page.innerHTML = `<div class="page-head"><div><h1>State program</h1><p class="small muted">CO-SYNE enrollments issued by state DMVs through the <a href="${esc(url('state/'))}" target="_blank" rel="noopener">State Issuer Console</a>. Annual fee ${usd(p.fee)}: ${Math.round(p.stateShareRate * 100)}% to the state, the rest for program administration. Payments are simulated in the pilot.</p></div>
+        <button class="btn sm" id="pr">${icon('activity')} Refresh</button></div>
+      <div class="stat-row">
+        <div class="stat"><b>${Object.values(c).reduce((a, b) => a + b, 0)}</b><span>Applications</span></div>
+        <div class="stat ${c.submitted + c.verified ? 'warn' : ''}"><b>${(c.submitted ?? 0) + (c.verified ?? 0)}</b><span>Awaiting state review</span></div>
+        <div class="stat ok"><b>${active}</b><span>Enrolled residents</span></div>
+        <div class="stat"><b>${usd(p.revenue.amount)}</b><span>Fees collected · ${p.revenue.count} payments</span></div>
+        <div class="stat ok"><b>${usd(p.revenue.stateShare)}</b><span>State share</span></div>
+        <div class="stat"><b>${usd(p.revenue.adminFee)}</b><span>Administration</span></div>
+      </div>
+      <div class="card" style="padding:0"><div class="table-wrap"><table class="table"><tr><th>State issuer</th><th>Code</th><th>Applications</th><th>Collected</th><th>State share</th><th>Administration</th></tr>
+        ${p.jurisdictions.map((j) => `<tr><td><b>${esc(j.issuerName ?? j.name)}</b>${j.demo ? ' <span class="pill warn">demo</span>' : ''}</td><td class="mono">${esc(j.code)}</td><td>${j.applications}</td><td>${usd(j.revenue.amount)}</td><td>${usd(j.revenue.stateShare)}</td><td>${usd(j.revenue.adminFee)}</td></tr>`).join('')}</table></div></div>
+      <div class="card" style="margin-top:14px"><h4>Applications by status</h4><dl class="kv">${Object.entries(c).map(([k, n]) => `<dt>${esc(k[0].toUpperCase() + k.slice(1))}</dt><dd>${n}</dd>`).join('')}</dl></div>`;
+    $('#pr', page).onclick = () => PAGES.program(page);
+  },
+
   async leads(page) {
     let leads;
     try { ({ leads } = await call('GET', '/api/admin/leads')); } catch (e) { page.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
-    const TYPE = { agency: 'Law enforcement agency', dispatch: 'Dispatch / 911 center', driver: 'Driver', hardware: 'Vehicle hardware', partner: 'Partner', investor: 'Investor', press: 'Press', other: 'Other' };
+    const TYPE = { agency: 'Law enforcement agency', dispatch: 'Dispatch / 911 center', driver: 'Driver', hardware: 'Vehicle hardware', partner: 'Partner', investor: 'Investor', state: 'State or federal agency', press: 'Press', other: 'Other' };
     page.innerHTML = `<div class="page-head"><div><h1>Website leads</h1><p class="small muted">Demo requests, hardware interest and questions sent from the public website (<a href="${esc(url('cosyne_contact.html'))}" target="_blank" rel="noopener">contact page</a>). Personal details stay in the leads file, not the ledger.</p></div>
         <button class="btn sm" id="lr">${icon('activity')} Refresh</button></div>
       <div class="stat-row">${Object.entries(TYPE).map(([k, l]) => ({ k, l, n: leads.filter((x) => x.type === k).length })).filter((x) => x.n).map((x) => `<div class="stat"><b>${x.n}</b><span>${esc(x.l)}</span></div>`).join('') || '<div class="stat"><b>0</b><span>Leads so far</span></div>'}</div>
       <div class="card" style="padding:0"><div class="table-wrap"><table class="table"><tr><th>Received</th><th>Contact</th><th>Organization</th><th>Interest</th><th>Message</th></tr>
         ${leads.map((l) => `<tr><td class="small">${dateTime(l.at)}</td><td><b>${esc(l.name)}</b><div class="small"><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></div>${l.phone ? `<div class="tiny muted">${esc(l.phone)}</div>` : ''}</td>
-          <td class="small">${esc(l.organization || '—')}${l.role ? `<div class="tiny muted">${esc(l.role)}</div>` : ''}</td><td><span class="pill ${l.type === 'agency' || l.type === 'dispatch' ? 'brand' : ''}">${esc(TYPE[l.type] ?? l.type)}</span></td>
+          <td class="small">${esc(l.organization || '—')}${l.role ? `<div class="tiny muted">${esc(l.role)}</div>` : ''}</td><td><span class="pill ${l.type === 'agency' || l.type === 'dispatch' || l.type === 'state' ? 'brand' : ''}">${esc(TYPE[l.type] ?? l.type)}</span></td>
           <td class="small" style="max-width:420px;white-space:pre-wrap">${esc(l.message || '—')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No leads yet. They appear here when someone sends the contact form.</td></tr>'}</table></div></div>`;
     $('#lr', page).onclick = () => PAGES.leads(page);
   },
