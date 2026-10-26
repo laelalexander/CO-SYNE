@@ -172,11 +172,12 @@ test('website: contact form leads, rate limit, admin list, and the .php link', a
   const php = await fetch(base + '/cosyne_index.php?x=1', { redirect: 'manual' });
   assert.equal(php.status, 301);
   assert.equal(php.headers.get('location'), 'cosyne_index.html?x=1');
-  for (const p of ['/cosyne_index.html', '/cosyne_drivers.html', '/cosyne_agencies.html', '/cosyne_platform.html', '/cosyne_security.html', '/cosyne_contact.html', '/site/site.css', '/site/site.js']) {
+  for (const p of ['/cosyne_index.html', '/cosyne_drivers.html', '/cosyne_agencies.html', '/cosyne_platform.html', '/cosyne_security.html', '/cosyne_contact.html', '/cosyne_credits.html', '/site/site.css', '/site/site.js']) {
     assert.equal((await fetch(base + p)).status, 200, p);
   }
   const img = await fetch(base + '/site/img/dispatch-map.jpg');
   assert.equal(img.headers.get('content-type'), 'image/jpeg');
+  assert.equal((await fetch(base + '/site/img/photos/officer-window.webp')).headers.get('content-type'), 'image/webp');
 
   assert.equal((await api('POST', '/api/contact', { name: 'A', email: 'a@b.co', message: 'hello there' })).status, 400, 'name too short');
   assert.equal((await api('POST', '/api/contact', { name: 'Ann Lee', email: 'not-an-email', message: 'hello there' })).status, 400, 'bad email');

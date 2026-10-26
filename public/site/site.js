@@ -40,7 +40,7 @@ function footer() {
       <div><h4>Trust</h4><ul><li><a href="cosyne_security.html">Security &amp; privacy</a></li><li><a href="cosyne_security.html#faq">FAQ</a></li><li><a href="api/ledger/verify">Ledger status</a></li></ul></div>
       <div><h4>Company</h4><ul><li><a href="cosyne_index.html#about">About CO-SYNE</a></li><li><a href="cosyne_contact.html?type=agency">Request a demo</a></li><li><a href="cosyne_contact.html">Contact us</a></li></ul></div>
     </div>
-    <div class="foot-base"><span>© ${new Date().getFullYear()} CO-SYNE. All rights reserved.</span><span>Pilot software. Sample identities and payments in demonstrations are simulated.</span></div></div>`;
+    <div class="foot-base"><span>© ${new Date().getFullYear()} CO-SYNE. All rights reserved.</span><span>Photos are illustrative; people shown are not CO-SYNE pilot participants. <a href="cosyne_credits.html">Photo credits</a> · Demonstration identities and payments are simulated.</span></div></div>`;
 }
 
 // <i data-icon="name"></i> -> inline SVG
