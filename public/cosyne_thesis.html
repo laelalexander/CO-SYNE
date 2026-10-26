@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Investment Thesis | CO-SYNE</title>
+  <meta name="description" content="CO-SYNE investment thesis: trust at the roadside is infrastructure. An animated presentation.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+  <link rel="stylesheet" href="site/deck.css">
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <span class="hint">← → to move · P to play · F for full screen</span>
+  <main class="deck" aria-roledescription="presentation" aria-label="CO-SYNE investment thesis">
+
+    <section class="slide photo" aria-label="Title">
+      <img src="site/img/photos/officer-talk.webp" alt="">
+      <div class="slide-inner">
+        <span class="kicker a">CO-SYNE · Investment thesis</span>
+        <h1 class="a">Trust at the roadside<br>is infrastructure.</h1>
+        <p class="big a">The verified handshake between drivers, officers and dispatch, starting with the most frequent contact between government and the people it serves.</p>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="Scale">
+      <div class="slide-inner">
+        <span class="kicker a">The moment that matters</span>
+        <h2 class="a">The traffic stop is where most people meet the police.</h2>
+        <div class="stats a">
+          <div class="stat-x"><b>20M+</b><span>motorists stopped by U.S. police each year</span></div>
+          <div class="stat-x"><b>No. 1</b><span>most common form of police-initiated contact</span></div>
+          <div class="stat-x"><b>16.7M</b><span>U.S. residents stopped as drivers in 2020</span></div>
+        </div>
+        <p class="src a">Sources: <a href="https://openpolicing.stanford.edu/findings/" rel="noopener">Stanford Open Policing Project</a>; <a href="https://bjs.ojp.gov/library/publications/contacts-between-police-and-public-2020" rel="noopener">U.S. Bureau of Justice Statistics, Contacts Between Police and the Public, 2020</a>.</p>
+      </div>
+    </section>
+
+    <section class="slide dark" aria-label="The gap">
+      <div class="slide-inner">
+        <span class="kicker a">The gap</span>
+        <h2 class="a">Every stop starts with uncertainty on both sides of the window.</h2>
+        <div class="tiles a">
+          <div class="tile-x"><i data-icon="user"></i><b>The driver can't verify</b><span>whether the person approaching is a real officer who is on duty.</span></div>
+          <div class="tile-x"><i data-icon="shield"></i><b>The officer approaches blind</b><span>not knowing who is inside, or whether a disability or language need changes how to talk.</span></div>
+          <div class="tile-x"><i data-icon="file"></i><b>The record is fragmented</b><span>across paper citations, radio and separate systems, and gaps erode trust afterwards.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="Thesis">
+      <div class="slide-inner">
+        <span class="kicker a">Our thesis</span>
+        <p class="quote a">The first sixty seconds decide a stop's outcome, and today neither side can verify the other. <em>Whoever makes that moment verifiable becomes the trust layer for the roadside.</em></p>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="The verified handshake">
+      <div class="slide-inner split-x">
+        <div>
+          <span class="kicker a">The product</span>
+          <h2 class="a">CO-SYNE is the verified handshake layer.</h2>
+          <div class="tiles a" style="--n:1">
+            <div class="tile-x"><i data-icon="id"></i><b>Device-bound credentials</b><span>Agency-signed for officers, state-signed for drivers. Ed25519 keys that never leave the device.</span></div>
+            <div class="tile-x"><i data-icon="shieldCheck"></i><b>Mutual verification</b><span>Both sides prove who they are at every stop, checked on both devices.</span></div>
+            <div class="tile-x"><i data-icon="hash"></i><b>A signed ledger</b><span>Every event hash-chained and signed, so nothing can be quietly changed.</span></div>
+          </div>
+        </div>
+        <div class="media a"><div class="duo"><picture class="photo"><img data-src="site/img/photos/officer-window-800.webp" alt="An officer speaks with a driver at the car window"></picture><div class="over phone"><img data-src="site/img/driver-pullover.jpg" alt="The driver's phone shows the verified officer"></div></div></div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="How a stop works">
+      <div class="slide-inner">
+        <span class="kicker a">How it works</span>
+        <h2 class="a">One stop, start to finish, on one record.</h2>
+        <div class="flow">
+          <div class="a"><b>Scan</b><span>The officer scans the vehicle's CO-SYNE sticker.</span></div>
+          <div class="a"><b>Verify</b><span>The driver's phone shows the verified officer and the reason.</span></div>
+          <div class="a"><b>Talk</b><span>Video or text from their seats; dispatch can join.</span></div>
+          <div class="a"><b>Cite</b><span>A signed eCitation arrives on the driver's phone.</span></div>
+          <div class="a"><b>Seal</b><span>The report is hashed into the evidence ledger.</span></div>
+          <div class="a"><b>Oversee</b><span>Dispatch sees every stop live and can verify the record.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="Wedge and expansion">
+      <div class="slide-inner">
+        <span class="kicker a">Wedge, then expansion</span>
+        <h2 class="a">Start with the stop. Grow on the same network.</h2>
+        <div class="tiles a">
+          <div class="tile-x"><i data-icon="siren"></i><b>Wedge: traffic stops</b><span>The most frequent police contact, and the clearest need for verification on both sides.</span></div>
+          <div class="tile-x"><i data-icon="heart"></i><b>Expansion: emergencies</b><span>SOS, crash and medical alerts on the same verified network, routed to the nearest center.</span></div>
+          <div class="tile-x"><i data-icon="car"></i><b>Then: vehicle hardware</b><span>From the CO-SYNE sticker to in-vehicle cameras, beacons and emergency buttons.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide dark" aria-label="Moat">
+      <div class="slide-inner">
+        <span class="kicker a">Why it compounds</span>
+        <h2 class="a">Each partner makes the network more valuable to the next.</h2>
+        <div class="tiles a">
+          <div class="tile-x"><i data-icon="network"></i><b>Network effects</b><span>Every agency and state credential partner adds verified officers and drivers the next agency can trust.</span></div>
+          <div class="tile-x"><i data-icon="map"></i><b>Corridors</b><span>On interstates, drivers cross agency and state lines. A credential that works across them is worth more.</span></div>
+          <div class="tile-x"><i data-icon="database"></i><b>The trusted record</b><span>The tamper-evident ledger becomes the source everyone relies on after a stop.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="Built today">
+      <div class="slide-inner split-x">
+        <div>
+          <span class="kicker a">Built today</span>
+          <h2 class="a">The full platform is live and demonstrable.</h2>
+          <ul class="checks a" style="list-style:none;padding:0;display:grid;gap:12px;font-size:1.1rem">
+            <li><i data-icon="check"></i> Driver app, Officer terminal, Dispatch and Main Admin, live at iobeacons.com/cosyne</li>
+            <li><i data-icon="check"></i> Installable on phones, laptops and desktops, with phone alerts</li>
+            <li><i data-icon="check"></i> An end-to-end verified stop working in demonstration</li>
+            <li><i data-icon="check"></i> The Tulsa, Oklahoma pilot in preparation</li>
+          </ul>
+          <p class="src a">Records checks and payments are simulated until state integrations.</p>
+        </div>
+        <div class="media a"><div class="window"><div class="window-bar"><i></i><i></i><i></i><span>CO-SYNE Dispatch</span></div><img data-src="site/img/dispatch-map.jpg" alt="The CO-SYNE dispatch console with a verified stop on the Tulsa map"></div></div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="Go to market">
+      <div class="slide-inner">
+        <span class="kicker a">Go to market</span>
+        <h2 class="a">Through officials, with grant-funded pilots and cooperative contracts.</h2>
+        <div class="phase-row a">
+          <div class="a done"><i></i><small>Now</small><b>Demonstrate</b><span>The full platform, end to end.</span></div>
+          <div class="a now"><i></i><small>Next</small><b>Tulsa pilot</b><span>With a published, independent evaluation.</span></div>
+          <div class="a"><i></i><small>Then</small><b>Oklahoma</b><span>Statewide, through a state contract.</span></div>
+          <div class="a"><i></i><small>Then</small><b>The South</b><span>13 states in four waves.</span></div>
+          <div class="a"><i></i><small>Always</small><b>Community</b><span>Advisory boards and public reports.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide photo" aria-label="The South">
+      <img data-src="site/img/photos/highway-night.webp" alt="">
+      <div class="slide-inner">
+        <span class="kicker a">From Oklahoma across the South</span>
+        <h2 class="a">13 states in four evidence-gated waves.</h2>
+        <div class="tiles a" style="--n:4">
+          <div class="tile-x"><b>Wave 1</b><span>Oklahoma, with the Tulsa reference pilot.</span></div>
+          <div class="tile-x"><b>Wave 2</b><span>Texas, Arkansas, Louisiana along I-35, I-40 and I-30.</span></div>
+          <div class="tile-x"><b>Wave 3</b><span>Mississippi, Alabama, Tennessee, Georgia, Florida.</span></div>
+          <div class="tile-x"><b>Wave 4</b><span>South Carolina, North Carolina, Kentucky, Virginia on I-75 and I-95.</span></div>
+        </div>
+        <p class="big a" style="margin-top:22px">Gates are evidence, not dates: pilot targets met, a first state contract, two state partners live, then a regional compact.</p>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="Business model">
+      <div class="slide-inner">
+        <span class="kicker a">Business model</span>
+        <h2 class="a">Agencies subscribe. Drivers are free.</h2>
+        <div class="tiles a" style="--n:4">
+          <div class="tile-x"><i data-icon="shield"></i><b>Officer seats</b><span>Per patrol terminal.</span></div>
+          <div class="tile-x"><i data-icon="headset"></i><b>Agency license</b><span>Dispatch and the Main Admin.</span></div>
+          <div class="tile-x"><i data-icon="id"></i><b>State partnership</b><span>The credential and statewide rollout.</span></div>
+          <div class="tile-x"><i data-icon="settings"></i><b>Onboarding</b><span>Integration and training.</span></div>
+        </div>
+        <p class="big a" style="margin-top:24px">Paid for through NHTSA highway safety grants, DOJ COPS and Byrne JAG, state appropriations and cooperative contracts. Pricing is validated in the Tulsa pilot.</p>
+      </div>
+    </section>
+
+    <section class="slide photo" aria-label="The ask">
+      <img data-src="site/img/photos/tulsa-skyline.webp" alt="">
+      <div class="slide-inner">
+        <span class="kicker a">The ask</span>
+        <h1 class="a">Take CO-SYNE from Tulsa to the South.</h1>
+        <p class="big a">Every roadside stop verified, accessible and accountable.</p>
+        <div class="cta-row a"><a class="btn btn-primary" href="cosyne_contact.html?type=investor">Request a meeting</a><a class="btn btn-secondary" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.7)" href="cosyne_investors.html">Investor Relations</a></div>
+        <p class="src a" style="color:#c9d6e3">Raise amount, use of funds and market figures are available to qualified investors on request. This presentation is not an offer to sell securities.</p>
+      </div>
+    </section>
+  </main>
+  <nav class="deck-bar" id="deck-bar" aria-label="Presentation controls"><a class="brand" href="cosyne_index.html"><img src="icon.svg" alt=""><span>CO-SYNE<small>Investment thesis</small></span></a></nav>
+  <script type="module" src="site/deck.js"></script>
+</body>
+</html>

@@ -38,6 +38,7 @@ function footer() {
       <div><h4>Apps</h4><ul><li><a href="driver/">Driver app</a></li><li><a href="officer/">Officer terminal</a></li><li><a href="dispatch/">Dispatch console</a></li><li><a href="downloads/">Downloads</a></li><li><a href="admin/">Main admin</a></li></ul></div>
       <div><h4>Solutions</h4><ul><li><a href="cosyne_drivers.html">For drivers</a></li><li><a href="cosyne_agencies.html">For agencies</a></li><li><a href="cosyne_platform.html#hardware">Vehicle hardware</a></li><li><a href="cosyne_platform.html#pilot">Tulsa pilot</a></li></ul></div>
       <div><h4>Trust</h4><ul><li><a href="cosyne_security.html">Security &amp; privacy</a></li><li><a href="cosyne_security.html#faq">FAQ</a></li><li><a href="api/ledger/verify">Ledger status</a></li></ul></div>
+      <div><h4>Investors</h4><ul><li><a href="cosyne_investors.html">Investor Relations</a></li><li><a href="cosyne_strategy.html">Market Strategy</a></li><li><a href="cosyne_thesis.html">Investment Thesis</a></li></ul></div>
       <div><h4>Company</h4><ul><li><a href="cosyne_index.html#about">About CO-SYNE</a></li><li><a href="cosyne_contact.html?type=agency">Request a demo</a></li><li><a href="cosyne_contact.html">Contact us</a></li></ul></div>
     </div>
     <div class="foot-base"><span>© ${new Date().getFullYear()} CO-SYNE. All rights reserved.</span><span>Photos are illustrative; people shown are not CO-SYNE pilot participants. <a href="cosyne_credits.html">Photo credits</a> · Demonstration identities and payments are simulated.</span></div></div>`;
@@ -117,3 +118,14 @@ icons();
 stepper();
 reveal();
 contact();
+
+// Reading view: highlight the section in view in the side contents.
+(() => {
+  const links = [...document.querySelectorAll('.doc-toc a[href^="#"]')];
+  if (!links.length || !('IntersectionObserver' in window)) return;
+  const byId = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { links.forEach((a) => a.classList.remove('on')); byId.get(e.target.id)?.classList.add('on'); }
+  }, { rootMargin: '-90px 0px -65% 0px' });
+  document.querySelectorAll('.doc-body section[id]').forEach((s) => io.observe(s));
+})();

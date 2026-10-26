@@ -815,7 +815,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   // ---------- website: contact and demo requests ----------
   // Leads are stored in data/leads.jsonl; the ledger only records that one
   // arrived, never who sent it.
-  const LEAD_TYPES = ['agency', 'dispatch', 'driver', 'hardware', 'partner', 'press', 'other'];
+  const LEAD_TYPES = ['agency', 'dispatch', 'driver', 'hardware', 'partner', 'investor', 'press', 'other'];
   const leadsFile = dataDir ? path.join(dataDir, 'leads.jsonl') : null;
   const leads = leadsFile && fs.existsSync(leadsFile) ? fs.readFileSync(leadsFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
   const leadHits = new Map(); // ip -> [timestamps]

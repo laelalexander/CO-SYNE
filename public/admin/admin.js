@@ -323,7 +323,7 @@ const PAGES = {
   async leads(page) {
     let leads;
     try { ({ leads } = await call('GET', '/api/admin/leads')); } catch (e) { page.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
-    const TYPE = { agency: 'Law enforcement agency', dispatch: 'Dispatch / 911 center', driver: 'Driver', hardware: 'Vehicle hardware', partner: 'Partner', press: 'Press', other: 'Other' };
+    const TYPE = { agency: 'Law enforcement agency', dispatch: 'Dispatch / 911 center', driver: 'Driver', hardware: 'Vehicle hardware', partner: 'Partner', investor: 'Investor', press: 'Press', other: 'Other' };
     page.innerHTML = `<div class="page-head"><div><h1>Website leads</h1><p class="small muted">Demo requests, hardware interest and questions sent from the public website (<a href="${esc(url('cosyne_contact.html'))}" target="_blank" rel="noopener">contact page</a>). Personal details stay in the leads file, not the ledger.</p></div>
         <button class="btn sm" id="lr">${icon('activity')} Refresh</button></div>
       <div class="stat-row">${Object.entries(TYPE).map(([k, l]) => ({ k, l, n: leads.filter((x) => x.type === k).length })).filter((x) => x.n).map((x) => `<div class="stat"><b>${x.n}</b><span>${esc(x.l)}</span></div>`).join('') || '<div class="stat"><b>0</b><span>Leads so far</span></div>'}</div>
