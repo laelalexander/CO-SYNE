@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Platform and vehicle hardware | CO-SYNE</title>
+  <meta name="description" content="The CO-SYNE platform: Digital Headquarters, Driver App, Officer Terminal, Dispatch Console and Vehicle Hardware on one D2ES core network. Live demo apps, CO-SYNE stickers, and the Tulsa, Oklahoma pilot.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+  <style>
+    .arch { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .arch .node { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: center; box-shadow: var(--shadow-2); position: relative; }
+    .arch .node::after { content: ""; position: absolute; left: 50%; bottom: -26px; width: 2px; height: 26px; background: var(--blue); opacity: .45; }
+    .arch .node .card-icon { margin: 0 auto 8px; }
+    .arch .node b { display: block; font-size: .98rem; }
+    .arch .node span { font-size: .82rem; color: var(--muted); }
+    .arch-core { margin-top: 26px; border-radius: var(--radius); padding: 18px 22px; background: linear-gradient(90deg, #0067b8, #2b88d8); color: #fff; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; box-shadow: var(--shadow-8); }
+    .arch-core div { background: rgba(255, 255, 255, .12); border-radius: 6px; padding: 12px 14px; font-size: .9rem; }
+    .arch-core b { display: block; font-size: .98rem; }
+    .arch-title { color: #fff; grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; font: 600 1.15rem/1.2 var(--font-display); background: none !important; padding: 0 !important; }
+    @media (max-width: 960px) { .arch { grid-template-columns: repeat(2, 1fr); } .arch .node::after { display: none; } .arch-core { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 520px) { .arch { grid-template-columns: 1fr; } .arch-core { grid-template-columns: 1fr; } }
+    .demo-list .card { flex-direction: row; align-items: center; gap: 16px; }
+    .demo-list img { width: 52px; height: 52px; border-radius: 12px; flex: 0 0 auto; }
+    .demo-list .grow { flex: 1; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header id="site-header"></header>
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <span class="eyebrow">Platform &amp; hardware</span>
+        <h1>One network for the whole roadside</h1>
+        <p class="lead">CO-SYNE is the interface and network connecting drivers, law enforcement, emergency responders and dispatch. D2ES is the AI-assisted emergency infrastructure underneath. Together they form one verified, real-time system.</p>
+        <div class="actions"><a class="btn btn-primary" href="#demo">Try the live demo</a><a class="btn btn-secondary" href="#hardware">Vehicle hardware</a></div>
+      </div>
+    </section>
+
+    <section id="hq">
+      <div class="wrap">
+        <div class="section-head reveal"><h2>How the pieces fit</h2><p>Five components, each built for the person using it, sharing one core network.</p></div>
+        <div class="arch reveal">
+          <div class="node"><div class="card-icon gold"><i data-icon="home"></i></div><b>Digital Headquarters</b><span>Website, registration, accounts, device ordering, agency onboarding</span></div>
+          <div class="node"><div class="card-icon"><i data-icon="phone"></i></div><b>Driver App</b><span>Verified ID, pull-over alerts, video, tickets, SOS</span></div>
+          <div class="node"><div class="card-icon"><i data-icon="shield"></i></div><b>Officer Terminal</b><span>Scanner, stop console, records, CAD, eCitations</span></div>
+          <div class="node"><div class="card-icon"><i data-icon="headset"></i></div><b>Dispatch Console</b><span>Live map, drop-in video, records, ledger</span></div>
+          <div class="node"><div class="card-icon gold"><i data-icon="car"></i></div><b>Vehicle Hardware</b><span>Stickers today; in-vehicle devices next</span></div>
+        </div>
+        <div class="arch-core reveal">
+          <div class="arch-title"><i data-icon="network"></i> D2ES Core Network</div>
+          <div><b>Real-time signaling</b>Secure WebSocket sessions with device-key sign-in, live location and WebRTC video setup.</div>
+          <div><b>Call routing</b>Rules triage with priority, nearest center and unit selection, plus an optional AI second pass.</div>
+          <div><b>Trust registry</b>Agency and state issuer keys that every device uses to verify credentials.</div>
+          <div><b>Evidence ledger</b>Append-only, hash-chained, Ed25519-signed record of every event.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="band-grey">
+      <div class="wrap">
+        <div class="section-head reveal"><span class="eyebrow">Live demo</span><h2>Open the real apps</h2><p>The demonstration network runs with sample Tulsa drivers and officers. Open each app in its own window, or on separate devices, and run a verified stop.</p></div>
+        <div class="grid grid-2 demo-list">
+          <a class="card hover reveal" href="driver/"><img src="icons/driver.svg" alt=""><div class="grow"><h3>Driver app</h3><p>Choose a demo driver, then wait for the officer's stop.</p></div><span class="link-arrow">Open</span></a>
+          <a class="card hover reveal" href="officer/"><img src="icons/officer.svg" alt=""><div class="grow"><h3>Officer terminal</h3><p>Pick a pilot officer, open the Scanner and scan a sticker.</p></div><span class="link-arrow">Open</span></a>
+          <a class="card hover reveal" href="dispatch/"><img src="icons/dispatch.svg" alt=""><div class="grow"><h3>Dispatch console</h3><p>Sign in to watch the stop live and drop in by video. Ask us for the demo access code.</p></div><span class="link-arrow">Open</span></a>
+          <a class="card hover reveal" href="demo.html"><img src="icon.svg" alt=""><div class="grow"><h3>Side-by-side demo</h3><p>All three apps in one browser window, for presentations.</p></div><span class="link-arrow">Open</span></a>
+        </div>
+        <p style="margin-top:24px" class="small muted">Installing on phones and patrol terminals: see <a href="downloads/">Downloads</a>.</p>
+      </div>
+    </section>
+
+    <section id="hardware">
+      <div class="wrap split">
+        <div class="reveal"><span class="eyebrow">Vehicle hardware</span><h2>The CO-SYNE sticker</h2>
+          <p class="lead">Every enrolled vehicle carries a CO-SYNE sticker. The officer scans it from the patrol car, and the stop opens with the driver's verified credential, with no plate typing and no approach needed.</p>
+          <ul class="checks">
+            <li><i data-icon="qr"></i><div><b>Bumper sticker · 11.5 × 3 in</b><span>Sized to be read by the patrol car's camera from behind the vehicle.</span></div></li>
+            <li><i data-icon="qr"></i><div><b>Window cling · 4 × 4 in</b><span>For the rear window, for vehicles without a bumper location.</span></div></li>
+            <li><i data-icon="lock"></i><div><b>Privacy by design</b><span>The code holds only a link. Personal data is never printed on the vehicle.</span></div></li>
+          </ul>
+          <div class="actions"><a class="btn btn-primary" href="cosyne_contact.html?type=hardware">Pre-order / register interest</a><a class="btn btn-secondary" href="cosyne_drivers.html#get">Drivers: print your own</a></div></div>
+        <div class="split-media reveal">
+          <div class="stickers">
+            <div class="sticker bumper"><span class="qr" id="qr1"></span><div><b>CO-SYNE</b><small>Verified traffic stops · Scan from the patrol car</small><small>Tulsa, Oklahoma pilot</small></div></div>
+            <div class="sticker window"><span class="qr" id="qr2"></span><b style="margin-top:10px;font-size:1rem">CO-SYNE</b><small>Scan to verify</small></div>
+          </div>
+          <p class="small muted" style="margin-top:14px">Shown to scale relative to each other. Sample code.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="band-grey">
+      <div class="wrap">
+        <div class="section-head reveal"><span class="eyebrow">On the roadmap</span><h2>In-vehicle devices</h2><p>Hardware in development to extend CO-SYNE into the vehicle itself. Register interest to hear first and to join hardware trials.</p></div>
+        <div class="grid grid-3">
+          <div class="card reveal"><span class="tag warn">In development</span><div class="card-icon"><i data-icon="video"></i></div><h3>Vehicle camera</h3><p>A dash camera that joins the stop's video session and anchors its recordings as evidence.</p></div>
+          <div class="card reveal"><span class="tag warn">In development</span><div class="card-icon"><i data-icon="gps"></i></div><h3>GPS and LTE beacon</h3><p>Always-on location and connectivity for the vehicle, even when the driver's phone is not available.</p></div>
+          <div class="card reveal"><span class="tag warn">In development</span><div class="card-icon"><i data-icon="siren"></i></div><h3>Emergency button</h3><p>A physical one-press D2ES alert that sends the vehicle's location and ID to the nearest center.</p></div>
+        </div>
+        <p style="margin-top:24px"><a class="link-arrow" href="cosyne_contact.html?type=hardware">Register interest in hardware</a></p>
+      </div>
+    </section>
+
+    <section id="pilot">
+      <div class="wrap split">
+        <div class="reveal"><span class="eyebrow">Tulsa, Oklahoma</span><h2>The Tulsa pilot</h2>
+          <p class="lead">CO-SYNE's pilot runs on Tulsa geography, with urban and rural coverage through Tulsa 911 and north Tulsa County.</p>
+          <ul class="checks">
+            <li><i data-icon="map"></i><div><b>Urban and rural</b><span>A metro dispatch center and a rural county center, each with its own units. Routing picks the nearest center and adjusts ETAs for rural roads.</span></div></li>
+            <li><i data-icon="id"></i><div><b>Local issuers</b><span>Police and sheriff's office issue officer credentials; the state issues driver credentials, all in the trust registry.</span></div></li>
+            <li><i data-icon="ticket"></i><div><b>Oklahoma violations</b><span>eCitations use Oklahoma Title 47 violations. Fines and payments in the pilot are sample values.</span></div></li>
+          </ul>
+          <a class="btn btn-primary" href="cosyne_contact.html?type=agency">Join the pilot</a></div>
+        <div class="split-media reveal"><div class="window"><div class="window-bar"><i></i><i></i><i></i><span>Tulsa pilot · dispatch map</span></div><img src="site/img/dispatch-map.jpg" width="2000" height="1175" alt="The Tulsa map in the dispatch console" loading="lazy"></div></div>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="wrap cta-inner">
+        <div><h2>Ready to see it on your streets?</h2><p>We'll walk your team through the platform and plan a pilot that fits your agency.</p></div>
+        <div class="actions"><a class="btn btn-primary" href="cosyne_contact.html?type=agency">Request a demo</a><a class="btn btn-secondary" href="downloads/">Get the apps</a></div>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="site/site.js"></script>
+  <script type="module">
+    // Sample QR codes on the sticker mockups (the real install QR for the Driver app).
+    for (const id of ['qr1', 'qr2']) {
+      fetch('downloads/qr.svg?app=driver').then((r) => r.text()).then((svg) => { document.getElementById(id).innerHTML = svg; }).catch(() => {});
+    }
+  </script>
+</body>
+</html>

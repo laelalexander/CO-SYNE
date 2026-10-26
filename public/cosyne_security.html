@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security, privacy and FAQ | CO-SYNE</title>
+  <meta name="description" content="How CO-SYNE protects drivers and officers: Ed25519 credentials bound to device keys, mutual verification at every stop, a hash-chained signed evidence ledger, and recordings that stay on the device. Plus frequently asked questions.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header id="site-header"></header>
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <span class="eyebrow">Security &amp; privacy</span>
+        <h1>Trust that's verified, not assumed</h1>
+        <p class="lead">CO-SYNE is built so that neither a driver nor an officer has to take anyone's word for who they are, and so that the record of what happened can't be quietly changed.</p>
+        <p id="ledger-status" class="small muted" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="split">
+          <div class="reveal"><span class="eyebrow">Identity</span><h2>Credentials bound to the device</h2>
+            <p>Officers hold a credential signed by their agency; drivers hold one signed by the state. Each is bound to an Ed25519 key created on the person's own device. The private key never leaves that device and is never sent to CO-SYNE.</p>
+            <ul class="checks">
+              <li><i data-icon="shieldCheck"></i><div><b>Mutual verification at every stop</b><span>Both parties sign a one-time challenge for that stop. The server checks both, and the driver's phone checks the officer independently against the agency's published key.</span></div></li>
+              <li><i data-icon="alert"></i><div><b>Impersonation is caught</b><span>A forged, expired or revoked credential, or a copied credential without its key, fails. The driver sees a red warning with safety steps, and dispatch is alerted.</span></div></li>
+              <li><i data-icon="x"></i><div><b>Instant revocation</b><span>Dispatch or the administrator can revoke a credential. The device is signed out immediately and can't verify at a stop again.</span></div></li>
+            </ul></div>
+          <div class="split-media reveal"><div class="phone" style="margin:0 auto;width:250px"><img src="site/img/driver-pullover.jpg" width="780" height="1688" alt="Driver phone showing an officer verified on the phone, signed by the agency" loading="lazy"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band-grey">
+      <div class="wrap">
+        <div class="section-head reveal"><span class="eyebrow">Evidence</span><h2>A record that can't be quietly rewritten</h2>
+          <p>Every alert, routing decision, identity check, records query, video join, chat message, ticket, report and administrative action is written to an append-only ledger.</p></div>
+        <div class="grid grid-3">
+          <div class="card reveal"><div class="card-icon"><i data-icon="hash"></i></div><h3>Hash-chained</h3><p>Each entry includes the SHA-256 hash of the one before it. Editing, deleting or reordering any entry breaks every hash after it.</p></div>
+          <div class="card reveal"><div class="card-icon"><i data-icon="lock"></i></div><h3>Signed</h3><p>Each entry's hash is signed with the ledger's Ed25519 key, so someone who rewrites the file can't re-chain it without that key.</p></div>
+          <div class="card reveal"><div class="card-icon"><i data-icon="shieldCheck"></i></div><h3>Verifiable by anyone</h3><p>The whole chain can be re-checked at any time. The current status of this network is shown at the top of this page.</p></div>
+          <div class="card reveal"><div class="card-icon"><i data-icon="video"></i></div><h3>Recordings stay on the device</h3><p>Video recordings stay on the device that made them. Their SHA-256 fingerprint is anchored in the ledger, so any later edit is detectable.</p></div>
+          <div class="card reveal"><div class="card-icon"><i data-icon="report"></i></div><h3>Sealed documents</h3><p>Citations are signed by the officer's device key. Filed reports are hashed and sealed with the full stop timeline.</p></div>
+          <div class="card reveal"><div class="card-icon"><i data-icon="search"></i></div><h3>Audited access</h3><p>Records lookups and every administrator sign-in and action are recorded, with who did it and when.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head reveal"><span class="eyebrow">Privacy</span><h2>Only what's needed, only when it's needed</h2></div>
+        <div class="grid grid-2">
+          <div class="card reveal"><h3>Stickers carry no personal data</h3><p>The QR code on a vehicle holds only a link. Personal details are shown only on a verified officer's terminal during a stop, and that access is recorded.</p></div>
+          <div class="card reveal"><h3>Media flows peer to peer</h3><p>The CO-SYNE server relays only the connection setup for video calls. Audio and video travel directly between the devices in the call.</p></div>
+          <div class="card reveal"><h3>Website inquiries stay private</h3><p>Contact details sent through this website are kept separately for the CO-SYNE team. The public ledger records only that a message arrived.</p></div>
+          <div class="card reveal"><h3>Pilot transparency</h3><p>The demonstration network uses sample identities, simulated records checks and simulated payments. Production deployments use the agency's and state's own issuers.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band-grey" id="faq">
+      <div class="wrap">
+        <div class="section-head reveal"><span class="eyebrow">FAQ</span><h2>Frequently asked questions</h2></div>
+        <div class="faq reveal">
+          <details open><summary>What is CO-SYNE, and what is D2ES?</summary><div>CO-SYNE is the interface and network that connects drivers, law enforcement, emergency responders and dispatch. D2ES (Driver to Emergency Services) is the AI-assisted emergency infrastructure underneath it: alerting, call routing and real-time data to responders.</div></details>
+          <details><summary>How does a driver know the officer is real?</summary><div>When an officer starts a stop, they sign a one-time challenge with the key bound to their agency-issued credential. The driver's phone shows the officer's verified name, badge, agency and the reason, and checks the agency's signature itself. If anything fails, the driver sees a warning with safety steps and 911 is alerted.</div></details>
+          <details><summary>Do I need the app to be open to get a pull-over alert?</summary><div>No. Once you install the Driver app and turn on alerts, a pull-over alert reaches you even when the app is closed or your phone is locked. On iPhone, add CO-SYNE to your Home Screen first (iOS 16.4 or later).</div></details>
+          <details><summary>What does the officer see about me?</summary><div>Your verified license, vehicle, registration and insurance status, and any accessibility notes you added, so they can communicate the right way. Records checks in the pilot are simulated.</div></details>
+          <details><summary>What if I'm Deaf or hard of hearing?</summary><div>Choose Text only when the officer's call request arrives, and the whole stop can happen in writing. Your accessibility note is shown to the officer before the conversation begins.</div></details>
+          <details><summary>Is acknowledging a ticket an admission of guilt?</summary><div>No. Acknowledging receipt only confirms that the citation reached you. You can still pay or request a court date.</div></details>
+          <details><summary>What if something about a stop feels wrong?</summary><div>Press "Something feels wrong" at any time. It opens a priority alert to dispatch tied to the stop, with your location, and a dispatcher can join by video.</div></details>
+          <details><summary>Who can change the evidence record?</summary><div>No one can change it without detection. The ledger is append-only, hash-chained and signed, and the whole chain can be re-verified at any time.</div></details>
+          <details><summary>How do agencies join?</summary><div>Request a demo. We walk your team through the platform, add your agency to the trust registry so you can issue officer credentials, and set up patrol terminals and dispatch consoles for a pilot.</div></details>
+          <details><summary>Does CO-SYNE work in rural areas?</summary><div>Yes. Routing selects the nearest dispatch center, urban or rural, and adjusts response-time estimates for rural roads. Where the signal is weak, drivers and officers can use text-only sessions.</div></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-band">
+      <div class="wrap cta-inner">
+        <div><h2>Have a security question?</h2><p>Our team is happy to walk your IT and compliance staff through the architecture in detail.</p></div>
+        <div class="actions"><a class="btn btn-primary" href="cosyne_contact.html?type=agency">Contact the team</a></div>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="site/site.js"></script>
+  <script type="module">
+    fetch('api/ledger/verify').then((r) => r.json()).then((v) => {
+      document.getElementById('ledger-status').innerHTML = v.ok
+        ? `<span class="tag ok">● Ledger intact</span> ${v.length.toLocaleString()} entries verified just now on this network.`
+        : '<span class="tag warn">Ledger check failed</span>';
+    }).catch(() => {});
+  </script>
+</body>
+</html>

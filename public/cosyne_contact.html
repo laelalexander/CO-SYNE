@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact and request a demo | CO-SYNE</title>
+  <meta name="description" content="Request a CO-SYNE demo for your agency or dispatch center, register interest in vehicle hardware, or ask the CO-SYNE team a question.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site/site.css">
+  <style>
+    .contact-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+    .form-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-8); padding: 32px; }
+    .side .card + .card { margin-top: 18px; }
+    @media (max-width: 900px) { .contact-grid { grid-template-columns: 1fr; } .form-card { padding: 22px; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header id="site-header"></header>
+  <main id="main">
+    <section class="page-hero">
+      <div class="wrap">
+        <span class="eyebrow">Contact</span>
+        <h1>Let's talk about safer stops</h1>
+        <p class="lead">Request a walkthrough for your agency or dispatch center, register interest in CO-SYNE hardware, or send us a question. We reply by email.</p>
+      </div>
+    </section>
+    <section class="band-grey">
+      <div class="wrap contact-grid">
+        <div class="form-card">
+          <h2 style="font-size:1.5rem">Request a demo or send a message</h2>
+          <p class="muted small">Fields marked optional can be left blank.</p>
+          <div id="form-status" role="status" tabindex="-1"></div>
+          <form id="contact-form" class="form" novalidate>
+            <div class="field"><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" required maxlength="100"></div>
+            <div class="field"><label for="f-email">Work email</label><input id="f-email" name="email" type="email" autocomplete="email" required maxlength="160"></div>
+            <div class="field"><label for="f-org">Organization <span class="opt">(optional)</span></label><input id="f-org" name="organization" autocomplete="organization" maxlength="160" placeholder="Agency, center or company"></div>
+            <div class="field"><label for="f-role">Role <span class="opt">(optional)</span></label><input id="f-role" name="role" autocomplete="organization-title" maxlength="100" placeholder="e.g. Patrol captain, 911 director"></div>
+            <div class="field"><label for="f-phone">Phone <span class="opt">(optional)</span></label><input id="f-phone" name="phone" type="tel" autocomplete="tel" maxlength="40"></div>
+            <div class="field"><label for="f-type">I'm interested in</label>
+              <select id="f-type" name="type">
+                <option value="agency">A demo for a law enforcement agency</option>
+                <option value="dispatch">A demo for a dispatch / 911 center</option>
+                <option value="hardware">Vehicle hardware (pre-order or trials)</option>
+                <option value="driver">The Driver app</option>
+                <option value="partner">Partnering with CO-SYNE</option>
+                <option value="press">Press and media</option>
+                <option value="other">Something else</option>
+              </select></div>
+            <div class="field full"><label for="f-msg">How can we help?</label><textarea id="f-msg" name="message" maxlength="3000" placeholder="Tell us about your agency, the number of units or vehicles, and what you'd like to see."></textarea></div>
+            <div class="hp" aria-hidden="true"><label for="f-web">Leave this empty</label><input id="f-web" name="website" tabindex="-1" autocomplete="off"></div>
+            <div class="full actions"><button class="btn btn-primary" type="submit">Send message</button><span class="form-note">We use your details only to reply to this request.</span></div>
+          </form>
+        </div>
+        <aside class="side">
+          <div class="card"><div class="card-icon"><i data-icon="activity"></i></div><h3>Try it right now</h3><p>The demonstration network is live. Open the Driver app, Officer Terminal and Dispatch console and run a verified stop yourself.</p><a class="link-arrow" href="cosyne_platform.html#demo">Open the live demo</a></div>
+          <div class="card"><div class="card-icon"><i data-icon="phone"></i></div><h3>Drivers</h3><p>Install the Driver app on your phone and turn on alerts.</p><a class="link-arrow" href="downloads/#driver-app">Get the Driver app</a></div>
+          <div class="card"><div class="card-icon gold"><i data-icon="car"></i></div><h3>Vehicle hardware</h3><p>Choose "Vehicle hardware" in the form to pre-order stickers for a fleet or join in-vehicle device trials.</p><a class="link-arrow" href="cosyne_platform.html#hardware">See the hardware</a></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="site/site.js"></script>
+</body>
+</html>

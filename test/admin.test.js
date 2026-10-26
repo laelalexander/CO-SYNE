@@ -168,6 +168,40 @@ test('ledger export and the credential registry survive a restart', async () => 
   assert.equal((await api('GET', '/api/ledger/verify')).body.ok, true);
 });
 
+test('website: contact form leads, rate limit, admin list, and the .php link', async () => {
+  const php = await fetch(base + '/cosyne_index.php?x=1', { redirect: 'manual' });
+  assert.equal(php.status, 301);
+  assert.equal(php.headers.get('location'), 'cosyne_index.html?x=1');
+  for (const p of ['/cosyne_index.html', '/cosyne_drivers.html', '/cosyne_agencies.html', '/cosyne_platform.html', '/cosyne_security.html', '/cosyne_contact.html', '/site/site.css', '/site/site.js']) {
+    assert.equal((await fetch(base + p)).status, 200, p);
+  }
+  const img = await fetch(base + '/site/img/dispatch-map.jpg');
+  assert.equal(img.headers.get('content-type'), 'image/jpeg');
+
+  assert.equal((await api('POST', '/api/contact', { name: 'A', email: 'a@b.co', message: 'hello there' })).status, 400, 'name too short');
+  assert.equal((await api('POST', '/api/contact', { name: 'Ann Lee', email: 'not-an-email', message: 'hello there' })).status, 400, 'bad email');
+  const before = app.ledger.entries.length;
+  const ok = await api('POST', '/api/contact', { name: 'Capt. Ann Lee', email: 'Ann.Lee@Example.gov', organization: 'Example PD', type: 'agency', message: 'We would like a demo for 40 units.', source: 'website' });
+  assert.equal(ok.status, 200);
+  const entry = app.ledger.entries[before];
+  assert.equal(entry.type, 'lead_received');
+  assert.ok(!JSON.stringify(entry).includes('Ann'), 'no personal details in the ledger');
+  // The honeypot field is accepted but dropped.
+  assert.equal((await api('POST', '/api/contact', { name: 'Bot', email: 'bot@spam.co', message: 'buy now', website: 'http://spam' })).status, 200);
+
+  const token = await login();
+  const { body } = await api('GET', '/api/admin/leads', null, token);
+  assert.equal(body.leads.length, 1);
+  assert.equal(body.leads[0].email, 'ann.lee@example.gov');
+  assert.equal(body.leads[0].type, 'agency');
+  assert.equal((await api('GET', '/api/admin/leads')).status, 401);
+  const saved = fs.readFileSync(path.join(dataDir, 'leads.jsonl'), 'utf8').trim().split('\n');
+  assert.equal(saved.length, 1);
+
+  for (let i = 0; i < 4; i++) await api('POST', '/api/contact', { name: `Person ${i}`, email: `p${i}@example.com`, message: 'question here' });
+  assert.equal((await api('POST', '/api/contact', { name: 'One more', email: 'm@example.com', message: 'question here' })).status, 429);
+});
+
 test('admin sign-in is rate limited after repeated failures', async () => {
   for (let i = 0; i < 10; i++) await api('POST', '/api/admin/login', { token: `wrong-${i}` });
   assert.equal((await api('POST', '/api/admin/login', { token: 'test-admin' })).status, 429);

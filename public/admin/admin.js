@@ -84,7 +84,7 @@ async function refresh() {
 const VIEWS = [
   ['overview', 'Overview', 'activity'], ['modules', 'Modules & downloads', 'layers'], ['devices', 'Network devices', 'network'],
   ['credentials', 'Credentials', 'id'], ['agencies', 'Agencies & units', 'users'], ['operations', 'Operations', 'siren'],
-  ['ledger', 'Evidence ledger', 'database'], ['broadcast', 'System notices', 'bell'], ['settings', 'Settings', 'settings'],
+  ['ledger', 'Evidence ledger', 'database'], ['broadcast', 'System notices', 'bell'], ['leads', 'Website leads', 'message'], ['settings', 'Settings', 'settings'],
 ];
 
 function render() {
@@ -96,7 +96,7 @@ function render() {
 function renderChrome() {
   const o = S.overview;
   $('#sub').textContent = `${o.system.pilot} · v${o.system.version}${o.system.commit ? ` (${o.system.commit})` : ''}`;
-  const badge = { devices: o.counts.devices.total ? `<i class="n brand">${o.counts.devices.total}</i>` : '', operations: o.counts.alerts.open + o.counts.stops.live ? `<i class="n">${o.counts.alerts.open + o.counts.stops.live}</i>` : '' };
+  const badge = { leads: o.counts.leads?.new ? `<i class="n brand">${o.counts.leads.new}</i>` : '', devices: o.counts.devices.total ? `<i class="n brand">${o.counts.devices.total}</i>` : '', operations: o.counts.alerts.open + o.counts.stops.live ? `<i class="n">${o.counts.alerts.open + o.counts.stops.live}</i>` : '' };
   $('#side').innerHTML = VIEWS.map(([id, label, ic]) => `<button class="${S.view === id ? 'on' : ''}" data-view="${id}">${icon(ic)}<span>${esc(label)}</span>${badge[id] ?? ''}</button>`).join('')
     + `<hr><button data-theme-toggle>${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')}<span>${document.documentElement.dataset.theme === 'day' ? 'Night' : 'Day'} theme</span></button>
        <button data-href="../">${icon('home')}<span>Network home</span></button>`;
@@ -318,6 +318,20 @@ const PAGES = {
       } catch (err) { toast(err.message); }
     };
     $$('[data-unpin]', page).forEach((b) => { b.onclick = async () => { try { await call('POST', `/api/admin/broadcast/${b.dataset.unpin}/unpin`); await refresh(); PAGES.broadcast(page); } catch (err) { toast(err.message); } }; });
+  },
+
+  async leads(page) {
+    let leads;
+    try { ({ leads } = await call('GET', '/api/admin/leads')); } catch (e) { page.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+    const TYPE = { agency: 'Law enforcement agency', dispatch: 'Dispatch / 911 center', driver: 'Driver', hardware: 'Vehicle hardware', partner: 'Partner', press: 'Press', other: 'Other' };
+    page.innerHTML = `<div class="page-head"><div><h1>Website leads</h1><p class="small muted">Demo requests, hardware interest and questions sent from the public website (<a href="${esc(url('cosyne_contact.html'))}" target="_blank" rel="noopener">contact page</a>). Personal details stay in the leads file, not the ledger.</p></div>
+        <button class="btn sm" id="lr">${icon('activity')} Refresh</button></div>
+      <div class="stat-row">${Object.entries(TYPE).map(([k, l]) => ({ k, l, n: leads.filter((x) => x.type === k).length })).filter((x) => x.n).map((x) => `<div class="stat"><b>${x.n}</b><span>${esc(x.l)}</span></div>`).join('') || '<div class="stat"><b>0</b><span>Leads so far</span></div>'}</div>
+      <div class="card" style="padding:0"><div class="table-wrap"><table class="table"><tr><th>Received</th><th>Contact</th><th>Organization</th><th>Interest</th><th>Message</th></tr>
+        ${leads.map((l) => `<tr><td class="small">${dateTime(l.at)}</td><td><b>${esc(l.name)}</b><div class="small"><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></div>${l.phone ? `<div class="tiny muted">${esc(l.phone)}</div>` : ''}</td>
+          <td class="small">${esc(l.organization || '—')}${l.role ? `<div class="tiny muted">${esc(l.role)}</div>` : ''}</td><td><span class="pill ${l.type === 'agency' || l.type === 'dispatch' ? 'brand' : ''}">${esc(TYPE[l.type] ?? l.type)}</span></td>
+          <td class="small" style="max-width:420px;white-space:pre-wrap">${esc(l.message || '—')}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No leads yet. They appear here when someone sends the contact form.</td></tr>'}</table></div></div>`;
+    $('#lr', page).onclick = () => PAGES.leads(page);
   },
 
   async settings(page) {

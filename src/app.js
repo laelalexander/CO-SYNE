@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(here, '..', 'public');
 const LEAFLET_DIR = path.join(here, '..', 'node_modules', 'leaflet', 'dist');
 const JSQR_DIR = path.join(here, '..', 'node_modules', 'jsqr', 'dist');
-const MIME = { '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const ALERT_STATUSES = ['new', 'dispatched', 'acknowledged', 'en_route', 'on_scene', 'resolved', 'cancelled'];
 const UNIT_STATUSES = ['available', 'en_route', 'on_scene', 'busy', 'out_of_service'];
 const APPS = ['driver', 'officer', 'dispatch', 'admin', 'downloads'];
@@ -812,6 +812,40 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   route('GET', '/api/ledger/verify', () => ledger.verify());
   route('GET', '/api/ledger/key', () => ({ alg: 'Ed25519', publicJwk: { kty: 'OKP', crv: 'Ed25519', x: keystore.ledger.publicJwk.x }, head: ledger.head() }));
 
+  // ---------- website: contact and demo requests ----------
+  // Leads are stored in data/leads.jsonl; the ledger only records that one
+  // arrived, never who sent it.
+  const LEAD_TYPES = ['agency', 'dispatch', 'driver', 'hardware', 'partner', 'press', 'other'];
+  const leadsFile = dataDir ? path.join(dataDir, 'leads.jsonl') : null;
+  const leads = leadsFile && fs.existsSync(leadsFile) ? fs.readFileSync(leadsFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+  const leadHits = new Map(); // ip -> [timestamps]
+  route('POST', '/api/contact', ({ req, body }) => {
+    const ip = clientIp(req);
+    const now = Date.now();
+    const recent = (leadHits.get(ip) ?? []).filter((t) => now - t < 3600_000);
+    if (recent.length >= 5) throw new HttpError(429, 'too many requests from this address; please try again later');
+    const str = (v, max) => String(v ?? '').trim().slice(0, max);
+    // Bots fill the hidden "website" field; accept quietly and drop it.
+    if (str(body.website, 200)) return { ok: true };
+    const lead = {
+      id: randomId('lead', 6), at: new Date().toISOString(),
+      name: str(body.name, 100), email: str(body.email, 160).toLowerCase(), phone: str(body.phone, 40),
+      organization: str(body.organization, 160), role: str(body.role, 100),
+      type: LEAD_TYPES.includes(body.type) ? body.type : 'other', message: str(body.message, 3000), source: str(body.source, 60) || 'website',
+      status: 'new',
+    };
+    if (lead.name.length < 2) throw new HttpError(400, 'please enter your name');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(lead.email)) throw new HttpError(400, 'please enter a valid email address');
+    if (lead.message.length < 5 && lead.type !== 'hardware') throw new HttpError(400, 'please tell us a little about what you need');
+    recent.push(now);
+    leadHits.set(ip, recent);
+    leads.push(lead);
+    if (leadsFile) { fs.mkdirSync(path.dirname(leadsFile), { recursive: true }); fs.appendFileSync(leadsFile, JSON.stringify(lead) + '\n', { mode: 0o600 }); }
+    ledger.append('lead_received', { leadId: lead.id, type: lead.type, source: lead.source }, 'website');
+    return { ok: true, id: lead.id };
+  });
+  route('GET', '/api/admin/leads', ({ req }) => { adminFrom(req); return { leads: leads.slice().reverse() }; });
+
   // ---------- Web Push (driver phones) ----------
   route('GET', '/api/push/key', () => ({ publicKey: push.vapid.publicKey }));
   route('POST', '/api/push/subscribe', ({ req, body }) => {
@@ -908,6 +942,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
         devices: { driver: byRole('driver'), officer: byRole('officer'), dispatch: byRole('dispatch'), total: net.devices.length },
         adminSessions: [...sessions.values()].filter((s) => s.role === 'admin').length,
         push: { ...push.count(), sent: push.sent, failed: push.failed },
+        leads: { total: leads.length, new: leads.filter((l) => l.status === 'new').length },
         stops: { live: allStops.filter((s) => !['ended', 'failed'].includes(s.status)).length, failed: allStops.filter((s) => s.status === 'failed').length, total: allStops.length },
         alerts: { open: allAlerts.filter((a) => !['resolved', 'cancelled'].includes(a.status)).length, p1: allAlerts.filter((a) => a.triage?.priority === 1 && !['resolved', 'cancelled'].includes(a.status)).length, total: allAlerts.length },
         citations: { citations: allCitations.filter((c) => c.type === 'citation').length, warnings: allCitations.filter((c) => c.type === 'warning').length, finesIssued: allCitations.reduce((n, c) => n + (c.totalFine ?? 0), 0), paid: allCitations.filter((c) => c.status === 'paid').length },
@@ -1101,6 +1136,9 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-cache' }).end(svg);
       return;
     }
+    // The website is static HTML; old .php links (cosyne_index.php) redirect to it.
+    const php = url.pathname.match(/^\/(cosyne_[a-z]+)\.php$/);
+    if (php) { res.writeHead(301, { location: `${php[1]}.html${url.search}` }).end(); return; }
     const download = url.pathname.match(/^\/downloads\/([\w.-]+\.(?:cmd|sh|svg))$/);
     if (download) return serveDownload(req, res, download[1]);
     if (!url.pathname.startsWith('/api/')) return serveStatic(res, url.pathname);
