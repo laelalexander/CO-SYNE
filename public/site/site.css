@@ -301,3 +301,12 @@ a.card:hover, .card.hover:hover { box-shadow: var(--shadow-8); transform: transl
 .photo-band .btn-secondary { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .7); }
 .photo-band .btn-secondary:hover { background: rgba(255, 255, 255, .12); color: #fff; }
 .illustrative { font-size: .8rem; color: var(--faint); }
+
+/* photo strip with a large app window under it: keeps both the photo's
+   subject and the window's text readable */
+.duo.stack { padding-bottom: 0; }
+.duo.stack .photo { width: 100%; }
+.duo.stack .photo img { aspect-ratio: 21 / 9; object-position: var(--pos, center); }
+.duo.stack .over.window { position: relative; right: auto; bottom: auto; width: 90%; margin: -11% 0 0 auto; }
+.duo.stack.flip .over.window { margin: -11% auto 0 0; }
+@media (max-width: 600px) { .duo.stack .over.window { width: 100%; margin-top: -6%; } .duo.stack .photo img { aspect-ratio: 16 / 9; } }

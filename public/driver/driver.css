@@ -219,3 +219,11 @@ body.driver { -webkit-tap-highlight-color: transparent; }
 .push-nudge { border: 1px solid var(--brand-bg); }
 .push-nudge .ico-wrap { background: var(--brand-bg); color: var(--brand-2); }
 .sheet h2 .ico { width: 20px; height: 20px; vertical-align: -3px; }
+
+/* A landscape camera (the patrol car's) on a portrait phone: show the whole
+   frame instead of cropping into the middle, so the driver sees the officer
+   and their surroundings. */
+@media (orientation: portrait) {
+  .callscreen .remote .tile:not(.self):not([data-role="dispatch"]) { display: flex; align-items: center; background: radial-gradient(120% 60% at 50% 45%, #2a2f36 0%, #0d0f12 70%); }
+  .callscreen .remote .tile:not(.self):not([data-role="dispatch"]) video { height: auto; max-height: 100%; object-fit: contain; }
+}
