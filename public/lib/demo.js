@@ -20,6 +20,6 @@ export function openDemoBadge(config) {
   b.id = 'open-demo-badge';
   b.textContent = 'Open demo';
   b.title = 'Open demo mode: no sign-in codes. Turn it off in Main Admin > Settings.';
-  b.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;font:600 11px/1 system-ui,sans-serif;letter-spacing:.04em;padding:4px 10px;border-radius:999px;background:#c9a54a;color:#111;opacity:.92';
+  b.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;font:600 10px/1 system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:3px 10px 4px;border-radius:0 0 6px 6px;background:#c9a54a;color:#111;opacity:.9';
   document.body.append(b);
 }

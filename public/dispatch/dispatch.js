@@ -4,6 +4,7 @@ import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
 import { openDemoBadge, redeemDemoPass } from '../lib/demo.js';
+import '../lib/reveal.js';
 import {
   $, $$, esc, initials, money, time, timeSec, dateTime, ago, coords, vehicleLine, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
   citationDocument, reportDocument, showDocument, showModal, hideModal, toast, tone,
@@ -19,8 +20,8 @@ const yn = (ok) => `<span class="mark ${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗'
 const live = (s) => !['ended', 'failed'].includes(s.status);
 const openAlert = (a) => !['resolved', 'cancelled'].includes(a.status);
 
-function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('cosyne:dispatch:theme', t); } catch { /* ignore */ } }
-applyTheme((() => { try { return localStorage.getItem('cosyne:dispatch:theme') || 'night'; } catch { return 'night'; } })());
+function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('cosyne:dispatch:theme:v2', t); } catch { /* ignore */ } }
+applyTheme((() => { try { return localStorage.getItem('cosyne:dispatch:theme:v2') || 'day'; } catch { return 'day'; } })());
 
 // ---------- sign-in ----------
 function renderLogin(msg = '') {
@@ -29,7 +30,7 @@ function renderLogin(msg = '') {
   el.classList.remove('hidden');
   el.innerHTML = `<div class="login-card"><div class="row" style="gap:12px;margin-bottom:16px"><img src="../icons/dispatch.svg" width="44" height="44" alt=""><div><h2>CO-SYNE Dispatch</h2><div class="small muted">${esc(S.config.region.name)} · ${esc(S.config.pilot)}</div></div></div>
     <form id="login-form"><label>Dispatcher name</label><input name="name" required value="${esc(S.dispatcher?.name ?? (S.config.openDemo ? 'Demo dispatcher' : ''))}" placeholder="e.g. J. Morgan">
-      ${S.config.openDemo ? '' : `<label>Console access code</label><input name="token" type="password" required value="${esc(S.config.dispatchHint ?? '')}">`}
+      ${S.config.openDemo ? '' : `<label>Console access code</label><input name="token" type="password" required autocomplete="one-time-code" spellcheck="false" value="${esc(S.config.dispatchHint ?? '')}">`}
       <button class="btn brand block lg" style="margin-top:16px">${icon('headset')} ${S.config.openDemo ? 'Continue' : 'Sign in to the console'}</button></form>
     <p class="small" style="color:var(--danger);min-height:1.2em">${esc(msg)}</p>
     <p class="tiny faint">Pilot access code. Production consoles use agency SSO with per-dispatcher accounts.</p></div>`;
@@ -101,7 +102,7 @@ const VIEWS = [
 function render() {
   $('#center-name').textContent = `${S.state?.centers?.[0]?.name ?? 'Tulsa 911'} · ${S.config.pilot}`;
   $('#rail').innerHTML = VIEWS.map(([id, label, ic]) => `<button class="${S.view === id ? 'on' : ''}" data-view="${id}" title="${esc(label)}">${icon(ic)}${id === 'calls' && openCalls().length ? `<i class="badge-n">${openCalls().length}</i>` : id === 'stops' && liveStops().length ? `<i class="badge-n" style="background:var(--brand);color:#111">${liveStops().length}</i>` : ''}</button>`).join('')
-    + `<span style="flex:1"></span><button data-theme-toggle title="Day / night">${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')}</button>`;
+    + `<span style="flex:1"></span><button data-theme-toggle title="Light / dark mode" aria-label="Light / dark mode">${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')}</button>`;
   $$('#rail [data-view]').forEach((b) => { b.onclick = () => { S.view = b.dataset.view; if (S.view !== 'ops') { S.map?.remove(); S.map = null; } render(); }; });
   $('#rail [data-theme-toggle]').onclick = () => { applyTheme(document.documentElement.dataset.theme === 'day' ? 'night' : 'day'); render(); };
   $('#top-right').innerHTML = `<span class="pill ${S.session?.online ? 'ok' : 'bad'}"><span class="dot ${S.session?.online ? 'ok' : 'bad'}"></span>${S.session?.online ? 'Network online' : 'Reconnecting'}</span>

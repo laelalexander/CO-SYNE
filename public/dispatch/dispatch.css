@@ -66,3 +66,6 @@ body.dispatch { overflow: hidden; }
 .stat span { font-size: .78rem; color: var(--muted); }
 .unmute { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 8; border: 0; border-radius: 999px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
 @media (max-width: 1300px) { .ops { grid-template-columns: 300px 1fr 360px; } .feed { grid-template-columns: 1fr 300px; } }
+
+:root[data-theme="day"] .login { background: linear-gradient(180deg, #eaf3fc 0%, #f3f3f3 100%); }
+:root[data-theme="day"] .leaflet-container { background: #f2efe9; }

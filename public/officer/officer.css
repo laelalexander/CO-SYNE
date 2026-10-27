@@ -147,3 +147,9 @@ body.officer input, body.officer textarea, body.officer .selectable { user-selec
 .notify .n.bad { border-left-color: var(--danger); }
 .notify .n b { display: block; font-size: .9rem; }
 .notify .n span { font-size: .83rem; color: var(--muted); }
+
+:root[data-theme="day"] .lock { background: linear-gradient(180deg, #eaf3fc 0%, #f3f3f3 100%); }
+:root[data-theme="day"] .leaflet-container { background: #f2efe9; }
+:root[data-theme="day"] .win.focused { box-shadow: 0 1.6px 4px rgba(0, 0, 0, .12), 0 16px 36px rgba(0, 0, 0, .16); }
+:root[data-theme="day"] .wallpaper { background: linear-gradient(160deg, #f3f8fd 0%, #e6edf5 60%, #dfe7f0 100%); }
+:root[data-theme="day"] .taskbar { background: rgba(250, 250, 250, .94); border-top: 1px solid var(--line); }

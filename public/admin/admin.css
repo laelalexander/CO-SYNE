@@ -1,6 +1,6 @@
 /* CO-SYNE Main Admin: system administration console. */
 .login { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: radial-gradient(1100px 700px at 30% 10%, #22262c 0%, #0e1013 60%); }
-:root[data-theme="day"] .login { background: var(--bg); }
+:root[data-theme="day"] .login { background: linear-gradient(180deg, #eaf3fc 0%, #f3f3f3 100%); }
 .login-card { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
 
 .app { position: fixed; inset: 0; display: grid; grid-template-columns: 228px 1fr; grid-template-rows: 54px 1fr; }
@@ -17,7 +17,7 @@
 .side button.on { background: var(--panel-3); color: var(--text); }
 .side button.on .ico { color: var(--brand-2); }
 .side .n { margin-left: auto; font-size: .7rem; font-weight: 700; padding: 0 6px; border-radius: 8px; background: var(--danger); color: #fff; }
-.side .n.brand { background: var(--brand); color: #15120a; }
+.side .n.brand { background: var(--brand); color: var(--brand-ink); }
 .side hr { border: 0; border-top: 1px solid var(--line); margin: 8px 4px; }
 
 .main { overflow: auto; min-width: 0; }

@@ -1,11 +1,13 @@
 /* CO-SYNE design tokens and shared components.
-   Graphite by default (officer terminal, dispatch), with a day theme. */
+   Light (data-theme="day", the default in every module) follows the public
+   website's Fluent look: white surfaces, blue actions, soft shadows. The
+   graphite palette below is the optional Dark mode for night use. */
 :root {
   color-scheme: dark;
   --bg: #0e1013; --bg-2: #121418; --panel: #171a1f; --panel-2: #1d2127; --panel-3: #23282f;
   --line: #2a2f36; --line-2: #363c45;
   --text: #e6e8eb; --muted: #9aa2ad; --faint: #6b7380;
-  --brand: #c9a54a; --brand-2: #e0c171; --brand-bg: rgba(201, 165, 74, .12);
+  --brand: #c9a54a; --brand-2: #e0c171; --brand-bg: rgba(201, 165, 74, .12); --brand-ink: #15120a; --gold: #c9a54a;
   --ok: #3fb950; --ok-bg: rgba(63, 185, 80, .13);
   --warn: #f0883e; --warn-bg: rgba(240, 136, 62, .14);
   --danger: #f85149; --danger-bg: rgba(248, 81, 73, .14);
@@ -18,17 +20,20 @@
 }
 :root[data-theme="day"] {
   color-scheme: light;
-  --bg: #e9ecef; --bg-2: #f1f3f5; --panel: #ffffff; --panel-2: #f6f7f9; --panel-3: #eceff2;
-  --line: #d6dbe0; --line-2: #c3c9d0;
-  --text: #15181c; --muted: #5a636e; --faint: #858d97;
-  --brand: #8a6a12; --brand-2: #6e540d; --brand-bg: rgba(138, 106, 18, .1);
-  --ok: #1a7f37; --ok-bg: rgba(26, 127, 55, .1);
-  --warn: #bc4c00; --warn-bg: rgba(188, 76, 0, .1);
-  --danger: #cf222e; --danger-bg: rgba(207, 34, 46, .09);
-  --info: #0b5cad; --info-bg: rgba(11, 92, 173, .08);
-  --primary: #15181c; --primary-ink: #ffffff;
-  --shadow: 0 10px 30px rgba(20, 24, 28, .16);
+  --bg: #f3f3f3; --bg-2: #fafafa; --panel: #ffffff; --panel-2: #f7f7f7; --panel-3: #efefef;
+  --line: #e1e1e1; --line-2: #d1d1d1;
+  --text: #1b1b1b; --muted: #5e5e5e; --faint: #6e6e6e;
+  --brand: #0067b8; --brand-2: #005da6; --brand-bg: rgba(0, 103, 184, .1); --brand-ink: #ffffff;
+  --gold: #a07a1e;
+  --ok: #107c10; --ok-bg: rgba(16, 124, 16, .1);
+  --warn: #8a5a00; --warn-bg: #fff4ce;
+  --danger: #c42b1c; --danger-bg: rgba(196, 43, 28, .08);
+  --info: #0067b8; --info-bg: #eaf3fc;
+  --primary: #0067b8; --primary-ink: #ffffff;
+  --shadow: 0 1.6px 4px rgba(0, 0, 0, .12), 0 12px 28px rgba(0, 0, 0, .14);
 }
+:root[data-theme="day"] .card { box-shadow: 0 .3px .9px rgba(0, 0, 0, .1), 0 1.6px 3.6px rgba(0, 0, 0, .1); }
+:root[data-theme="day"] .btn.primary:hover, :root[data-theme="day"] .btn.brand:hover { background: #005da6; border-color: #005da6; filter: none; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -53,7 +58,7 @@ code, .mono { font-family: var(--mono); font-size: .88em; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
 .btn.primary:hover { filter: brightness(.92); }
-.btn.brand { background: var(--brand); color: #15120a; border-color: var(--brand); }
+.btn.brand { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
 .btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn.ok { background: var(--ok); color: #fff; border-color: var(--ok); }
 .btn.ghost { background: transparent; border-color: transparent; }

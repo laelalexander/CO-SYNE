@@ -2,6 +2,7 @@
 // admin console and the public downloads page.
 import { url } from './session.js';
 import { icon } from './icons.js';
+import './popout.js';
 import { esc, toast } from './ui.js';
 
 const PLATFORM_ICON = { windows: 'grid', unix: 'settings' };
@@ -12,7 +13,7 @@ function moduleCard(m, online) {
     <p class="muted small">${esc(m.summary)}</p>
     <div class="module-body">
       <div class="stack">
-        <div class="row"><a class="btn sm brand" href="${esc(m.installUrl)}" target="_blank" rel="noopener">${icon('plus')} Install on this device</a><a class="btn sm" href="${esc(m.url)}" target="_blank" rel="noopener">Open</a><button class="btn sm ghost" data-copy="${esc(m.installUrl)}" title="Copy install link">${icon('link')}</button></div>
+        <div class="row"><a class="btn sm brand" href="${esc(m.installUrl)}" target="_blank" rel="noopener">${icon('plus')} Install on this device</a><a class="btn sm" href="${esc(m.url)}" target="_blank" rel="noopener" data-popout="${esc(m.id)}">Open</a><button class="btn sm ghost" data-copy="${esc(m.installUrl)}" title="Copy install link">${icon('link')}</button></div>
         <h4>Desktop downloads</h4>
         <ul class="dl">${m.downloads.map((d) => `<li><a href="${esc(url(d.file))}" download>${icon(PLATFORM_ICON[d.platform] ?? 'file')} ${esc(d.label)}</a><span class="tiny faint mono">${esc(d.file.split('/').pop())}</span></li>`).join('')}</ul>
       </div>

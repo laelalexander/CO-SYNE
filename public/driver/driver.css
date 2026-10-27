@@ -5,14 +5,14 @@ body.driver {
   --bg: #f2f2f7; --panel: #ffffff; --panel-2: #f6f6f9; --panel-3: #ececf1;
   --line: #e2e2e8; --line-2: #d3d3db;
   --text: #111214; --muted: #6c6f76; --faint: #9a9da4;
-  --brand: #a8842c; --brand-2: #8a6a1c; --brand-bg: rgba(168, 132, 44, .12);
+  --brand: #0067b8; --brand-2: #005da6; --brand-bg: rgba(0, 103, 184, .1); --brand-ink: #fff;
   --ok: #1f9d55; --ok-bg: rgba(31, 157, 85, .12);
   --warn: #d97706; --warn-bg: rgba(217, 119, 6, .12);
   --danger: #e5484d; --danger-bg: rgba(229, 72, 77, .1);
   --info: #3a6ea5; --info-bg: rgba(58, 110, 165, .1);
-  --primary: #111214; --primary-ink: #fff;
+  --primary: #0067b8; --primary-ink: #fff;
   --shadow: 0 8px 28px rgba(17, 18, 20, .14);
-  --font: -apple-system, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, sans-serif;
+  --font: "Segoe UI Variable Text", "Segoe UI", -apple-system, "SF Pro Text", system-ui, Roboto, sans-serif;
   background: #d9dbe0;
   font-size: 15px;
 }

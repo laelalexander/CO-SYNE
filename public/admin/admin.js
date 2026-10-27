@@ -4,6 +4,8 @@
 // installable modules.
 import { api, bootstrap, url } from '../lib/session.js';
 import { icon } from '../lib/icons.js';
+import '../lib/reveal.js';
+import { popOut } from '../lib/popout.js';
 import { modulesHtml, bindModules } from '../lib/modules.js';
 import {
   $, $$, esc, money, timeSec, dateTime, ago, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
@@ -20,8 +22,8 @@ const ROLE_ICON = { driver: 'phone', officer: 'shield', dispatch: 'headset' };
 const CRED_TONE = { valid: 'ok', revoked: 'bad', expired: 'warn', invalid: 'bad' };
 const uptime = (s) => (s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m` : `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`);
 
-function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('cosyne:admin:theme', t); } catch { /* ignore */ } }
-applyTheme((() => { try { return localStorage.getItem('cosyne:admin:theme') || 'night'; } catch { return 'night'; } })());
+function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('cosyne:admin:theme:v2', t); } catch { /* ignore */ } }
+applyTheme((() => { try { return localStorage.getItem('cosyne:admin:theme:v2') || 'day'; } catch { return 'day'; } })());
 
 // REST calls with the admin session; an expired session returns to sign-in.
 async function call(method, path, body) {
@@ -41,7 +43,7 @@ function renderLogin(msg = '') {
   el.classList.remove('hidden');
   el.innerHTML = `<div class="login-card"><div class="row" style="gap:12px;margin-bottom:16px"><img src="../icons/admin.svg" width="44" height="44" alt=""><div><h2>CO-SYNE Main Admin</h2><div class="small muted">${esc(S.config.region.name)} · ${esc(S.config.pilot)}</div></div></div>
     <form id="login-form"><label>Administrator name</label><input name="name" required autocomplete="name" value="${esc(S.admin?.name ?? '')}" placeholder="e.g. A. Alexander">
-      <label>Admin access code</label><input name="token" type="password" required autocomplete="current-password" value="${esc(S.config.adminHint ?? '')}">
+      <label>Admin access code</label><input name="token" type="password" required autocomplete="one-time-code" spellcheck="false" value="${esc(S.config.adminHint ?? '')}">
       <label class="row" style="gap:8px;margin-top:12px;font-weight:400"><input type="checkbox" name="keep" checked style="width:auto"> Keep me signed in on this computer for 30 days</label>
       <button class="btn brand block lg" style="margin-top:14px">${icon('lock')} Sign in</button></form>
     <p class="small" style="color:var(--danger);min-height:1.2em" id="login-msg">${esc(msg)}</p>
@@ -99,7 +101,7 @@ function renderChrome() {
   $('#sub').textContent = `${o.system.pilot} · v${o.system.version}${o.system.commit ? ` (${o.system.commit})` : ''}`;
   const badge = { leads: o.counts.leads?.new ? `<i class="n brand">${o.counts.leads.new}</i>` : '', devices: o.counts.devices.total ? `<i class="n brand">${o.counts.devices.total}</i>` : '', operations: o.counts.alerts.open + o.counts.stops.live ? `<i class="n">${o.counts.alerts.open + o.counts.stops.live}</i>` : '' };
   $('#side').innerHTML = VIEWS.map(([id, label, ic]) => `<button class="${S.view === id ? 'on' : ''}" data-view="${id}">${icon(ic)}<span>${esc(label)}</span>${badge[id] ?? ''}</button>`).join('')
-    + `<hr><button data-theme-toggle>${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')}<span>${document.documentElement.dataset.theme === 'day' ? 'Night' : 'Day'} theme</span></button>
+    + `<hr><button data-theme-toggle>${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')}<span>${document.documentElement.dataset.theme === 'day' ? 'Dark mode' : 'Light mode'}</span></button>
        <button data-href="../">${icon('home')}<span>Network home</span></button>`;
   $$('#side [data-view]').forEach((b) => { b.onclick = () => { S.view = b.dataset.view; $('#app').classList.remove('menu-open'); render(); }; });
   $('#side [data-theme-toggle]').onclick = () => { applyTheme(document.documentElement.dataset.theme === 'day' ? 'night' : 'day'); renderChrome(); };
@@ -145,7 +147,7 @@ const PAGES = {
           <dt>Demo data</dt><dd>${o.system.demo ? '<span class="pill warn">on</span>' : '<span class="pill ok">off</span>'}</dd>
           <dt>Phone alerts</dt><dd>${c.push.subscriptions} phone${c.push.subscriptions === 1 ? '' : 's'} registered · ${c.push.sent} sent${c.push.failed ? `, ${c.push.failed} failed` : ''}</dd>
           <dt>Admin sessions</dt><dd>${c.adminSessions}</dd></dl></div>
-        <div class="card"><h4>Modules</h4>${o.modules.map((m) => `<div class="mod-line"><img src="${url(`icons/${m.id}.svg`)}" width="28" height="28" alt=""><span class="grow"><b>${esc(m.name)}</b></span><span class="pill ${m.online ? 'ok' : ''}"><span class="dot ${m.online ? 'ok' : ''}"></span>${m.online} online</span><a class="btn sm" href="${url(`${m.id}/`)}" target="_blank" rel="noopener">Open</a></div>`).join('')}
+        <div class="card"><h4>Modules</h4>${o.modules.map((m) => `<div class="mod-line"><img src="${url(`icons/${m.id}.svg`)}" width="28" height="28" alt=""><span class="grow"><b>${esc(m.name)}</b></span><span class="pill ${m.online ? 'ok' : ''}"><span class="dot ${m.online ? 'ok' : ''}"></span>${m.online} online</span><a class="btn sm" href="${url(`${m.id}/`)}" target="_blank" rel="noopener" data-popout="${esc(m.id)}">Open</a></div>`).join('')}
           <div class="row" style="margin-top:10px"><button class="btn sm" data-go="modules">${icon('layers')} Install & download</button></div></div>
         <div class="card"><h4>Units · ${c.units.total}</h4><div class="bar" style="margin:6px 0 10px">${unitBar}</div>
           <div class="row">${Object.entries(ub).map(([st, n]) => `<span class="pill ${UNIT_TONE[st] ?? ''}">${esc(UNIT_STATUS[st] ?? st)} ${n}</span>`).join('')}</div>
@@ -368,8 +370,8 @@ const PAGES = {
       </ol></aside></div>`;
 
     const findKit = (m) => kit?.kit.find((k) => k.module === m);
-    const WIN = { dispatch: 'width=1500,height=900,left=0,top=0', officer: 'width=1366,height=820,left=60,top=40', state: 'width=1366,height=860,left=120,top=80', driver: 'width=430,height=900,left=1000,top=60', 'driver-pending': 'width=430,height=900,left=1040,top=90' };
-    const openMod = (m) => window.open(findKit(m).link, `cosyne-demo-${m}`, WIN[m]);
+    const slots = { dispatch: 0, officer: 1, state: 2, driver: 0, 'driver-pending': 0 };
+    const openMod = (m) => popOut(findKit(m).link, m, slots[m]);
     const later = () => setTimeout(() => { if (S.view === 'demo') PAGES.demo(page); }, 2500);
     $('#dm-prepare', page).onclick = async (e) => {
       e.currentTarget.disabled = true;
@@ -459,7 +461,7 @@ const PAGES = {
     page.innerHTML = `<div class="page-head"><div><h1>Settings</h1><p class="small muted">Your admin password, open demo mode, and the server configuration. Access codes are never shown here.</p></div></div>
       <div class="grid2" style="margin-bottom:14px">
         <div class="card"><h4>${icon('lock')} Admin password</h4><p class="small muted">${st.passwordSet ? `Your own password is in use (changed ${dateTime(st.passwordUpdatedAt)}).` : 'You are using the server access code. Set a password you can remember; it replaces the code for signing in here.'}</p>
-          <form id="pw-form" class="stack" style="gap:8px"><label class="small">Current password or access code<input name="current" type="password" required autocomplete="current-password"></label>
+          <form id="pw-form" class="stack" style="gap:8px"><label class="small">Current password or access code<input name="current" type="password" required autocomplete="one-time-code" spellcheck="false"></label>
             <label class="small">New password <span class="muted">(at least 6 characters)</span><input name="next" type="password" required minlength="6" autocomplete="new-password"></label>
             <label class="small">Confirm new password<input name="confirm" type="password" required minlength="6" autocomplete="new-password"></label>
             <button class="btn brand">Save new password</button><span class="small" id="pw-msg"></span></form>

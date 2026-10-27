@@ -5,6 +5,7 @@ import { generateHolderKeys, loadIdentity, saveIdentity, clearIdentity, signText
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
 import { openDemoBadge, redeemDemoPass } from '../lib/demo.js';
+import '../lib/reveal.js';
 import { scanStickerImage, startCameraScan, stickerIdFromText } from '../lib/scanner.js';
 import {
   $, $$, esc, initials, money, time, timeSec, dateTime, ago, coords, vehicleLine, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
@@ -31,9 +32,9 @@ const officer = () => S.identity?.credential?.subject ?? {};
 // ---------- theme ----------
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('cosyne:officer:theme', t); } catch { /* ignore */ }
+  try { localStorage.setItem('cosyne:officer:theme:v2', t); } catch { /* ignore */ }
 }
-applyTheme((() => { try { return localStorage.getItem('cosyne:officer:theme') || 'night'; } catch { return 'night'; } })());
+applyTheme((() => { try { return localStorage.getItem('cosyne:officer:theme:v2') || 'day'; } catch { return 'day'; } })());
 
 // ---------- notifications ----------
 let notifyHost = null;
@@ -77,7 +78,7 @@ function renderLock(message = '') {
             <div class="row" style="flex-wrap:nowrap"><div class="grow"><label>Badge</label><input name="badge" required></div><div class="grow"><label>Unit</label><input name="unit" required placeholder="Riverside 214"></div></div>
             <label>Agency</label><select name="agencyId"><option value="tulsa-pd">Tulsa Police Department</option><option value="tcso">Tulsa County Sheriff's Office</option></select>
             <label>Division</label><select name="division"><option>Riverside Division</option><option>Gilcrease Division</option><option>Mingo Valley Division</option><option>North Patrol</option></select>
-            <label>Agency enrollment code</label><input name="code" required placeholder="provided by your agency">
+            <label>Agency enrollment code</label><input name="code" required placeholder="provided by your agency" autocomplete="one-time-code" spellcheck="false">
             <button class="btn primary block" style="margin-top:12px">Enroll this terminal</button>
           </form></details>`}
       <div class="boot-line" id="boot">${esc(message)}</div>
@@ -176,7 +177,7 @@ function toggleStart() {
   el.innerHTML = `<div class="spread"><div class="row"><div class="avatar">${esc(initials(o.name))}</div><div><b>${esc(o.name)}</b><div class="small muted">Badge ${esc(o.badge)} · ${esc(o.unit)} · ${esc(S.identity.credential.issuerName)}</div></div></div>
       <span class="pill ${S.session?.online ? 'ok' : 'warn'}"><span class="dot ${S.session?.online ? 'ok' : 'warn'}"></span>${S.session?.online ? 'On network' : 'Offline'}</span></div>
     <div class="start-grid">${Object.entries(APPS).filter(([id]) => id !== 'video').map(([id, a]) => `<button class="desk-icon" data-open="${id}"><span class="glyph">${icon(a.icon)}</span>${esc(a.short ?? a.title)}</button>`).join('')}</div>
-    <div class="start-foot"><button class="btn sm" id="st-theme">${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')} ${document.documentElement.dataset.theme === 'day' ? 'Night mode' : 'Day mode'}</button>
+    <div class="start-foot"><button class="btn sm" id="st-theme">${icon(document.documentElement.dataset.theme === 'day' ? 'moon' : 'sun')} ${document.documentElement.dataset.theme === 'day' ? 'Dark mode' : 'Light mode'}</button>
       <span class="row"><button class="btn sm" id="st-lock">${icon('lock')} Lock</button><button class="btn sm" id="st-out">${icon('power')} Sign out</button></span></div>`;
   el.classList.remove('hidden');
   $$('#start [data-open]').forEach((b) => { b.onclick = () => { el.classList.add('hidden'); wm.open(b.dataset.open); }; });
@@ -786,7 +787,7 @@ function renderSettings(body) {
   const turn = S.config.iceServers.some((s) => [].concat(s.urls).some((x) => String(x).startsWith('turn')));
   body.innerHTML = `<div class="stack">
     <div class="card"><h4>Officer</h4><dl class="kv" style="margin-top:8px"><dt>Name</dt><dd>${esc(o.name)}</dd><dt>Badge</dt><dd>${esc(o.badge)}</dd><dt>Unit</dt><dd>${esc(o.unit)}</dd><dt>Division</dt><dd>${esc(o.division ?? '—')}</dd><dt>Agency</dt><dd>${esc(S.identity.credential.issuerName)}</dd><dt>Credential</dt><dd class="mono small">${esc(S.identity.credential.id)} · exp ${esc(S.identity.credential.expiresAt.slice(0, 10))}</dd></dl></div>
-    <div class="card"><h4>Display</h4><div class="seg" style="margin-top:8px"><button data-th="night" class="${document.documentElement.dataset.theme !== 'day' ? 'on' : ''}">${icon('moon')} Night</button><button data-th="day" class="${document.documentElement.dataset.theme === 'day' ? 'on' : ''}">${icon('sun')} Day</button></div></div>
+    <div class="card"><h4>Display</h4><div class="seg" style="margin-top:8px"><button data-th="night" class="${document.documentElement.dataset.theme !== 'day' ? 'on' : ''}">${icon('moon')} Dark</button><button data-th="day" class="${document.documentElement.dataset.theme === 'day' ? 'on' : ''}">${icon('sun')} Light</button></div></div>
     <div class="card"><h4>Network</h4><dl class="kv" style="margin-top:8px"><dt>Server</dt><dd class="mono small">${esc(url('/'))}</dd><dt>Status</dt><dd>${S.session?.online ? 'Connected' : 'Offline'}</dd><dt>Video</dt><dd>${turn ? 'TURN relay configured' : 'STUN only (same-network calls)'}</dd><dt>Location</dt><dd>${coords(S.loc)} (${S.locSource === 'gps' ? 'GPS' : 'simulated'})</dd><dt>Pilot</dt><dd>${esc(S.config.pilot)}</dd></dl></div>
     <div class="row"><button class="btn" id="s-lock">${icon('lock')} Lock terminal</button><button class="btn danger" id="s-out">${icon('logout')} Sign out and remove credential</button></div></div>`;
   $$('[data-th]', body).forEach((b) => { b.onclick = () => { applyTheme(b.dataset.th); renderSettings(body); }; });

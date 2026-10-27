@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="day">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,9 +18,9 @@
 <body>
   <div class="bar"><img src="icon.svg" width="26" height="26" alt=""><b>CO-SYNE</b><span class="muted small">Side-by-side demo. Each pane is a separate app with its own identity, the same as on separate devices.</span><span style="flex:1"></span><a class="btn sm" href="./">All apps</a></div>
   <div class="panes">
-    <section class="pane"><header><span>Driver's phone</span><a href="driver/" target="_blank" rel="noopener">open alone</a></header><iframe src="driver/" title="Driver" allow="camera; microphone; geolocation; autoplay"></iframe></section>
-    <section class="pane"><header><span>Officer terminal</span><a href="officer/" target="_blank" rel="noopener">open alone</a></header><iframe src="officer/" title="Officer" allow="camera; microphone; geolocation; autoplay"></iframe></section>
-    <section class="pane"><header><span>Dispatch</span><a href="dispatch/" target="_blank" rel="noopener">open alone</a></header><iframe src="dispatch/" title="Dispatch" allow="camera; microphone; autoplay"></iframe></section>
+    <section class="pane"><header><span>Driver's phone</span><a href="driver/" target="_blank" rel="noopener" data-popout="driver">open in its own window</a></header><iframe src="driver/" title="Driver" allow="camera; microphone; geolocation; autoplay"></iframe></section>
+    <section class="pane"><header><span>Officer terminal</span><a href="officer/" target="_blank" rel="noopener" data-popout="officer">open in its own window</a></header><iframe src="officer/" title="Officer" allow="camera; microphone; geolocation; autoplay"></iframe></section>
+    <section class="pane"><header><span>Dispatch</span><a href="dispatch/" target="_blank" rel="noopener" data-popout="dispatch">open in its own window</a></header><iframe src="dispatch/" title="Dispatch" allow="camera; microphone; autoplay"></iframe></section>
   </div>
 </body>
 </html>

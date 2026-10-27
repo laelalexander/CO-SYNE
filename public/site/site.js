@@ -1,6 +1,7 @@
 // CO-SYNE website: shared header and footer, icons, the phone menu, the
 // traffic-stop walkthrough, scroll reveal, and the contact form.
 import { icon } from '../lib/icons.js';
+import '../lib/popout.js';
 
 const PAGES = [
   ['cosyne_index.html', 'Home'], ['cosyne_index.html#how', 'How it works'], ['cosyne_drivers.html', 'Drivers'],
@@ -35,7 +36,7 @@ function footer() {
   el.innerHTML = `<div class="wrap"><div class="foot-grid">
       <div><a class="brand" href="cosyne_index.html"><img src="icon.svg" alt=""><span>CO-SYNE<small>Driver to Emergency Services</small></span></a>
         <p style="margin-top:14px;max-width:320px">Connecting drivers, law enforcement, emergency responders and dispatch on one verified, real-time network.</p></div>
-      <div><h4>Apps</h4><ul><li><a href="driver/">Driver app</a></li><li><a href="officer/">Officer terminal</a></li><li><a href="dispatch/">Dispatch console</a></li><li><a href="downloads/">Downloads</a></li><li><a href="admin/">Main admin</a></li></ul></div>
+      <div><h4>Apps</h4><ul><li><a href="driver/" target="_blank" rel="noopener" data-popout="driver">Driver app</a></li><li><a href="officer/" target="_blank" rel="noopener" data-popout="officer">Officer terminal</a></li><li><a href="dispatch/" target="_blank" rel="noopener" data-popout="dispatch">Dispatch console</a></li><li><a href="downloads/">Downloads</a></li><li><a href="admin/">Main admin</a></li></ul></div>
       <div><h4>Solutions</h4><ul><li><a href="cosyne_drivers.html">For drivers</a></li><li><a href="cosyne_agencies.html">For agencies</a></li><li><a href="cosyne_platform.html#hardware">Vehicle hardware</a></li><li><a href="cosyne_platform.html#pilot">Tulsa pilot</a></li></ul></div>
       <div><h4>Trust</h4><ul><li><a href="cosyne_security.html">Security &amp; privacy</a></li><li><a href="cosyne_security.html#faq">FAQ</a></li><li><a href="api/ledger/verify">Ledger status</a></li></ul></div>
       <div><h4>States</h4><ul><li><a href="cosyne_states.html">State program</a></li><li><a href="cosyne_state_briefing.html">State briefing</a></li><li><a href="cosyne_state_letter.html">Sample resident letter</a></li><li><a href="cosyne_apply.html">Apply for CO-SYNE</a></li><li><a href="state/">State Issuer Console</a></li></ul></div>
