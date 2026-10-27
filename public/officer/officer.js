@@ -4,7 +4,7 @@ import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { generateHolderKeys, loadIdentity, saveIdentity, clearIdentity, signText } from '../lib/keys.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
-import { redeemDemoPass } from '../lib/demo.js';
+import { openDemoBadge, redeemDemoPass } from '../lib/demo.js';
 import { scanStickerImage, startCameraScan, stickerIdFromText } from '../lib/scanner.js';
 import {
   $, $$, esc, initials, money, time, timeSec, dateTime, ago, coords, vehicleLine, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
@@ -797,6 +797,7 @@ function renderSettings(body) {
 // ================= boot =================
 async function init() {
   ({ config: S.config, trust: S.trust } = await bootstrap());
+  openDemoBadge(S.config);
   S.catalog = await api('GET', '/api/violations');
   if (S.config.demo) S.samples = await api('GET', '/api/samples').catch(() => null);
   renderLock();

@@ -204,6 +204,6 @@ test('website: contact form leads, rate limit, admin list, and the .php link', a
 });
 
 test('admin sign-in is rate limited after repeated failures', async () => {
-  for (let i = 0; i < 10; i++) await api('POST', '/api/admin/login', { token: `wrong-${i}` });
+  for (let i = 0; i < 25; i++) await api('POST', '/api/admin/login', { token: `wrong-${i}` });
   assert.equal((await api('POST', '/api/admin/login', { token: 'test-admin' })).status, 429);
 });

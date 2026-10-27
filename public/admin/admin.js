@@ -12,7 +12,7 @@ import {
 
 const S = {
   config: null, view: 'overview', overview: null, timer: null,
-  admin: (() => { try { return JSON.parse(sessionStorage.getItem('cosyne:admin') ?? 'null'); } catch { return null; } })(),
+  admin: (() => { try { return JSON.parse(localStorage.getItem('cosyne:admin') ?? sessionStorage.getItem('cosyne:admin') ?? 'null'); } catch { return null; } })(),
   devRole: 'all', credFilter: { q: '', type: 'all', status: 'all' }, ledgerFilter: '',
 };
 const fmtPlate = (p = '') => (/^[A-Z]{3}\d{3}$/.test(p) ? `${p.slice(0, 3)}-${p.slice(3)}` : p);
@@ -42,16 +42,17 @@ function renderLogin(msg = '') {
   el.innerHTML = `<div class="login-card"><div class="row" style="gap:12px;margin-bottom:16px"><img src="../icons/admin.svg" width="44" height="44" alt=""><div><h2>CO-SYNE Main Admin</h2><div class="small muted">${esc(S.config.region.name)} · ${esc(S.config.pilot)}</div></div></div>
     <form id="login-form"><label>Administrator name</label><input name="name" required autocomplete="name" value="${esc(S.admin?.name ?? '')}" placeholder="e.g. A. Alexander">
       <label>Admin access code</label><input name="token" type="password" required autocomplete="current-password" value="${esc(S.config.adminHint ?? '')}">
-      <button class="btn brand block lg" style="margin-top:16px">${icon('lock')} Sign in</button></form>
+      <label class="row" style="gap:8px;margin-top:12px;font-weight:400"><input type="checkbox" name="keep" checked style="width:auto"> Keep me signed in on this computer for 30 days</label>
+      <button class="btn brand block lg" style="margin-top:14px">${icon('lock')} Sign in</button></form>
     <p class="small" style="color:var(--danger);min-height:1.2em" id="login-msg">${esc(msg)}</p>
     <p class="tiny faint">Administrative access to the whole CO-SYNE network. Every sign-in and action is recorded in the evidence ledger.</p></div>`;
   $('#login-form').onsubmit = async (e) => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
     try {
-      const r = await api('POST', '/api/admin/login', { name: f.name, token: f.token });
+      const r = await api('POST', '/api/admin/login', { name: f.name, token: f.token, keep: Boolean(f.keep) });
       S.admin = { token: r.token, name: r.name };
-      try { sessionStorage.setItem('cosyne:admin', JSON.stringify(S.admin)); } catch { /* ignore */ }
+      try { (r.keep ? localStorage : sessionStorage).setItem('cosyne:admin', JSON.stringify(S.admin)); } catch { /* ignore */ }
       start();
     } catch (err) { $('#login-msg').textContent = err.message; }
   };
@@ -60,7 +61,7 @@ function renderLogin(msg = '') {
 function signOut(msg) {
   if (S.admin?.token && !msg) api('POST', '/api/admin/logout', null, S.admin.token).catch(() => {});
   S.admin = S.admin ? { name: S.admin.name } : null;
-  try { sessionStorage.removeItem('cosyne:admin'); } catch { /* ignore */ }
+  try { sessionStorage.removeItem('cosyne:admin'); localStorage.removeItem('cosyne:admin'); if (S.admin?.name) localStorage.setItem('cosyne:admin', JSON.stringify(S.admin)); } catch { /* ignore */ }
   renderLogin(msg ?? '');
 }
 
@@ -455,12 +456,34 @@ const PAGES = {
   async settings(page) {
     let st;
     try { st = await call('GET', '/api/admin/settings'); } catch (e) { page.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
-    page.innerHTML = `<div class="page-head"><div><h1>Settings</h1><p class="small muted">Server configuration, read-only. Access codes are never shown here.</p></div></div>
+    page.innerHTML = `<div class="page-head"><div><h1>Settings</h1><p class="small muted">Your admin password, open demo mode, and the server configuration. Access codes are never shown here.</p></div></div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="card"><h4>${icon('lock')} Admin password</h4><p class="small muted">${st.passwordSet ? `Your own password is in use (changed ${dateTime(st.passwordUpdatedAt)}).` : 'You are using the server access code. Set a password you can remember; it replaces the code for signing in here.'}</p>
+          <form id="pw-form" class="stack" style="gap:8px"><label class="small">Current password or access code<input name="current" type="password" required autocomplete="current-password"></label>
+            <label class="small">New password <span class="muted">(at least 6 characters)</span><input name="next" type="password" required minlength="6" autocomplete="new-password"></label>
+            <label class="small">Confirm new password<input name="confirm" type="password" required minlength="6" autocomplete="new-password"></label>
+            <button class="btn brand">Save new password</button><span class="small" id="pw-msg"></span></form>
+          <p class="tiny faint" style="margin-top:10px">Forgot it? On the server, delete <code>data/admin-auth.json</code> and restart CO-SYNE; the access code in /etc/cosyne/cosyne.env works again.</p></div>
+        <div class="card"><h4>${icon('users')} Open demo mode</h4>
+          <p class="small muted">When on, Dispatch, the Officer terminal, the State Issuer Console and the Driver app open without any access codes: just a Continue button. The Main Admin still needs your password. Each module shows an "Open demo" badge.</p>
+          ${st.demoMode ? `<div class="row" style="gap:10px;margin-top:6px"><span class="pill ${st.openDemo ? 'ok' : ''}">${st.openDemo ? 'On' : 'Off'}</span><button class="btn ${st.openDemo ? '' : 'brand'}" id="od-toggle">${st.openDemo ? 'Turn off (require codes)' : 'Turn on'}</button></div>` : '<div class="notice">Demo mode is off on this server (COSYNE_DEMO=off), so open demo is not available.</div>'}</div>
+      </div>
       <div class="card" style="padding:0;margin-bottom:14px"><div class="table-wrap"><table class="table"><tr><th>Setting</th><th>Value</th><th>Purpose</th></tr>
         ${st.settings.map((s) => `<tr><td class="mono small">${esc(s.key)}</td><td>${s.secret ? `<span class="pill ${/^set/.test(s.value) ? 'ok' : 'warn'}">${esc(s.value)}</span>` : `<span class="mono small">${esc(s.value ?? '—')}</span>`}</td><td class="small muted">${esc(s.note)}</td></tr>`).join('')}</table></div></div>
       <div class="grid2"><div class="card"><h4>Changing settings</h4><p class="small">Settings live in <code>/etc/cosyne/cosyne.env</code> on the server. After editing, restart the service:</p><pre class="json">sudo systemctl restart cosyne</pre>
         <p class="small muted">Data directory: <code>${esc(st.dataDir ?? 'none (in memory)')}</code>. The ledger, credential registry and sample identities are kept there; back it up with the server.</p></div>
         <div class="card"><h4>Security checklist</h4><ul class="checks">${S.overview.warnings.map((w) => `<li><span class="mark bad">!</span><span class="small">${esc(w.text)}</span></li>`).join('') || '<li><span class="mark ok">✓</span>No open items.</li>'}</ul></div></div>`;
+    $('#pw-form', page).onsubmit = async (e) => {
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(e.target));
+      const msg = $('#pw-msg', page);
+      if (f.next !== f.confirm) { msg.textContent = 'The two new passwords do not match.'; return; }
+      try { await call('POST', '/api/admin/password', f); e.target.reset(); msg.textContent = 'Saved. Use your new password next time you sign in.'; toast('Admin password changed'); } catch (err) { msg.textContent = err.message; }
+    };
+    $('#od-toggle', page)?.addEventListener('click', async () => {
+      try { const r = await call('POST', '/api/admin/open-demo', { on: !st.openDemo }); toast(r.openDemo ? 'Open demo is on: no codes in the modules' : 'Open demo is off: modules need their codes'); } catch (err) { toast(err.message); }
+      PAGES.settings(page);
+    });
   },
 };
 

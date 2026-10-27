@@ -3,7 +3,7 @@
 // prints letters, manages renewals and sees the revenue split.
 import { api, bootstrap, url } from '../lib/session.js';
 import { icon } from '../lib/icons.js';
-import { redeemDemoPass } from '../lib/demo.js';
+import { openDemoBadge, redeemDemoPass } from '../lib/demo.js';
 import { LETTER_CSS, STICKER_CSS, approvalLetter, receivedNotice, infoNeededNotice, declinedNotice, enclosureGuide, stickerSet } from '../lib/letters.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -34,16 +34,16 @@ function renderLogin(msg = '') {
   $('#app').classList.add('hidden');
   const el = $('#login'); el.classList.remove('hidden');
   el.innerHTML = `<div class="card"><div class="dg-head" style="margin-bottom:18px"><img src="../icons/state.svg" width="48" height="48" alt=""><div><h2 style="margin:0">CO-SYNE State Issuer Console</h2><p class="small muted" style="margin:2px 0 0">For state DMVs, DOTs and federal partners</p></div></div>
-    <form id="lf" class="form"><label>Your name<input name="name" required autocomplete="name" placeholder="e.g. J. Rivera, Program Office"></label>
-      <label>Issuer access code<input name="token" type="password" required autocomplete="current-password" value="${S.config?.demo ? 'state-demo' : ''}"></label>
-      <button class="btn btn-primary">Sign in</button></form>
+    <form id="lf" class="form"><label>Your name<input name="name" required autocomplete="name" placeholder="e.g. J. Rivera, Program Office" value="${S.config?.openDemo ? 'Demo Program Office' : ''}"></label>
+      ${S.config?.openDemo ? '' : `<label>Issuer access code<input name="token" type="password" required autocomplete="current-password" value="${S.config?.demo ? 'state-demo' : ''}"></label>`}
+      <button class="btn btn-primary">${S.config?.openDemo ? 'Continue' : 'Sign in'}</button></form>
     <p class="small" id="lmsg" style="color:var(--danger);min-height:1.2em;margin-top:10px">${esc(msg)}</p>
     <p class="tiny muted">Every sign-in and action is recorded in the CO-SYNE evidence ledger.</p></div>`;
   $('#lf').onsubmit = async (e) => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
     try {
-      const r = await api('POST', '/api/state/login', f);
+      const r = await api('POST', '/api/state/login', S.config?.openDemo ? { name: f.name, open: true } : f);
       S.session = { token: r.token, name: r.name, jurisdictions: r.jurisdictions };
       try { sessionStorage.setItem('cosyne:state', JSON.stringify(S.session)); } catch { /* ignore */ }
       start();
@@ -321,6 +321,7 @@ function printLetters(list) {
 // ---------- boot ----------
 (async () => {
   try { ({ config: S.config } = await bootstrap()); } catch (e) { document.body.innerHTML = `<p style="margin:40px">Cannot reach the CO-SYNE network: ${esc(e.message)}</p>`; return; }
+  openDemoBadge(S.config);
   // A Demo Control link signs the console in without the access code.
   try {
     const r = await redeemDemoPass('state');

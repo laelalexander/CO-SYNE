@@ -1,6 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -141,10 +141,45 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   const demoEnabled = env.COSYNE_DEMO !== 'off';
   // Without ADMIN_TOKEN the built-in demo code only works in demo mode.
   const adminToken = env.ADMIN_TOKEN || (demoEnabled ? 'admin-demo' : null);
+  // The admin password from Settings, if one is set, else ADMIN_TOKEN.
+  const adminCodeOk = (code) => {
+    if (auth.password) {
+      const got = Buffer.from(hashPassword(code ?? '', auth.password.salt).hash, 'hex');
+      return timingSafeEqual(got, Buffer.from(auth.password.hash, 'hex'));
+    }
+    return Boolean(adminToken) && sameSecret(code, adminToken);
+  };
   const roomHistory = new Map(); // room -> last chat messages
   const startedAt = new Date().toISOString();
   const notices = []; // admin broadcasts, newest last
   const loginFailures = new Map(); // ip -> { count, since }
+  // Sign-in lockout: 25 failed attempts from one address pause sign-in for 5 minutes.
+  const LOCKOUT = { tries: 25, ms: 5 * 60_000 };
+
+  // ---------- admin password, lasting sign-ins, open demo mode ----------
+  // Once an admin sets a password in Settings, its salted scrypt hash in
+  // data/admin-auth.json replaces ADMIN_TOKEN. Recovery: delete that file and
+  // restart; ADMIN_TOKEN works again. Admin and state sign-ins are kept there
+  // too (hashed), so a restart or update doesn't sign anyone out.
+  const authFile = dataDir ? path.join(dataDir, 'admin-auth.json') : null;
+  const auth = (() => { try { return JSON.parse(fs.readFileSync(authFile, 'utf8')); } catch { return {}; } })();
+  auth.sessions ??= [];
+  const saveAuth = () => {
+    if (!authFile) return;
+    auth.sessions = auth.sessions.filter((x) => Date.parse(x.expiresAt) > Date.now());
+    fs.mkdirSync(path.dirname(authFile), { recursive: true });
+    fs.writeFileSync(authFile + '.tmp', JSON.stringify(auth), { mode: 0o600 });
+    fs.renameSync(authFile + '.tmp', authFile);
+  };
+  const hashPassword = (pw, salt = randomBytes(16).toString('hex')) => ({ salt, hash: scryptSync(String(pw), salt, 32).toString('hex') });
+  const tokenHash = (t) => createHash('sha256').update(String(t)).digest('hex');
+  // Settings an admin can change at runtime (data/settings.json).
+  const settingsFile = dataDir ? path.join(dataDir, 'settings.json') : null;
+  const runtime = (() => { try { return JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch { return {}; } })();
+  const saveRuntime = () => { if (settingsFile) fs.writeFileSync(settingsFile, JSON.stringify(runtime), { mode: 0o600 }); };
+  // Open demo: in demo mode, Dispatch, the Officer terminal, the State console
+  // and the Driver app open without access codes. On unless an admin turns it off.
+  const openDemo = () => demoEnabled && runtime.openDemo !== false;
 
   // Every credential CO-SYNE has issued or seen, with its sticker, so the
   // admin console can list them. Enrolled credentials, stickers and
@@ -224,15 +259,23 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   function sessionFrom(req, { role, required = true } = {}) {
     const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     let s = token ? sessions.get(token) : null;
-    // Admin sessions expire after 12 hours.
-    if (s?.role === 'admin' && Date.now() - Date.parse(s.since) > 12 * 3600_000) { sessions.delete(token); s = null; }
+    if (!s && token) {
+      const kept = auth.sessions.find((x) => x.hash === tokenHash(token) && Date.parse(x.expiresAt) > Date.now());
+      if (kept) { s = kept.data; sessions.set(token, s); }
+    }
+    if (s?.expiresAt && Date.parse(s.expiresAt) < Date.now()) { sessions.delete(token); s = null; }
     if (!s && required) throw new HttpError(401, 'sign in required');
     if (s && role && ![].concat(role).includes(s.role)) throw new HttpError(403, `requires ${[].concat(role).join(' or ')} role`);
     return s ?? null;
   }
 
-  function newSession(data) {
+  function newSession(data, { keepDays } = {}) {
     const token = randomId('sess', 24);
+    if (keepDays) {
+      data.expiresAt = new Date(Date.now() + keepDays * 86400_000).toISOString();
+      auth.sessions.push({ hash: tokenHash(token), data, expiresAt: data.expiresAt });
+      saveAuth();
+    }
     sessions.set(token, data);
     return token;
   }
@@ -515,6 +558,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     region: REGION,
     pilot: env.COSYNE_PILOT ?? 'Tulsa Police Department pilot',
     demo: demoEnabled,
+    openDemo: openDemo(),
     dispatchHint: demoEnabled && !env.DISPATCH_TOKEN ? dispatchToken : null, // only the built-in demo code is ever hinted
     adminHint: demoEnabled && !env.ADMIN_TOKEN ? adminToken : null,
     version: PKG.version,
@@ -1016,11 +1060,17 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
 
   // State Issuer Console
   route('POST', '/api/state/login', ({ req, body }) => {
+    if (body.open && openDemo()) {
+      const name = String(body.name ?? '').trim().slice(0, 60) || 'Demo Program Office';
+      const token = newSession({ role: 'state', label: `State · ${name}`, profile: { name }, jurisdictions: null, since: new Date().toISOString() }, { keepDays: 30 });
+      ledger.append('state_signed_in', { name, jurisdictions: 'all', openDemo: true }, 'state');
+      return { token, name, jurisdictions: program.jurisdictions.map((j) => j.code) };
+    }
     if (!stateTokens.length) throw new HttpError(403, 'state console is disabled: set STATE_ISSUER_TOKEN on the server');
     const ip = clientIp(req);
     const f = loginFailures.get(ip);
-    if (f && Date.now() - f.since > 15 * 60_000) loginFailures.delete(ip);
-    if ((loginFailures.get(ip)?.count ?? 0) >= 10) throw new HttpError(429, 'too many failed sign-ins; try again in 15 minutes');
+    if (f && Date.now() - f.since > LOCKOUT.ms) loginFailures.delete(ip);
+    if ((loginFailures.get(ip)?.count ?? 0) >= LOCKOUT.tries) throw new HttpError(429, 'too many failed sign-ins; try again in 5 minutes');
     const match = stateTokens.find((t) => sameSecret(body.token, t.token));
     if (!match) {
       const cur = loginFailures.get(ip) ?? { count: 0, since: Date.now() };
@@ -1030,7 +1080,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     }
     loginFailures.delete(ip);
     const name = String(body.name ?? '').trim().slice(0, 60) || 'Program staff';
-    const token = newSession({ role: 'state', label: `State · ${name}`, profile: { name }, jurisdictions: match.jurisdictions, since: new Date().toISOString() });
+    const token = newSession({ role: 'state', label: `State · ${name}`, profile: { name }, jurisdictions: match.jurisdictions, since: new Date().toISOString() }, { keepDays: 30 });
     ledger.append('state_signed_in', { name, jurisdictions: match.jurisdictions ?? 'all' }, 'state');
     return { token, name, jurisdictions: (match.jurisdictions ?? program.jurisdictions.map((j) => j.code)) };
   });
@@ -1431,12 +1481,12 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
 
   // ---------- main admin: oversight of the whole CO-SYNE system ----------
   route('POST', '/api/admin/login', ({ req, body }) => {
-    if (!adminToken) throw new HttpError(403, 'admin console is disabled: set ADMIN_TOKEN on the server');
+    if (!adminToken && !auth.password) throw new HttpError(403, 'admin console is disabled: set ADMIN_TOKEN on the server');
     const ip = clientIp(req);
     const f = loginFailures.get(ip);
-    if (f && Date.now() - f.since > 15 * 60_000) loginFailures.delete(ip);
-    if ((loginFailures.get(ip)?.count ?? 0) >= 10) throw new HttpError(429, 'too many failed sign-ins; try again in 15 minutes');
-    if (!sameSecret(body.token, adminToken)) {
+    if (f && Date.now() - f.since > LOCKOUT.ms) loginFailures.delete(ip);
+    if ((loginFailures.get(ip)?.count ?? 0) >= LOCKOUT.tries) throw new HttpError(429, 'too many failed sign-ins; try again in 5 minutes');
+    if (!adminCodeOk(body.token)) {
       const cur = loginFailures.get(ip) ?? { count: 0, since: Date.now() };
       cur.count++;
       loginFailures.set(ip, cur);
@@ -1445,13 +1495,35 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
     }
     loginFailures.delete(ip);
     const name = String(body.name ?? '').trim().slice(0, 60) || 'Administrator';
-    const token = newSession({ role: 'admin', label: `Admin · ${name}`, profile: { name }, since: new Date().toISOString() });
-    ledger.append('admin_signed_in', { name, ip }, 'admin');
-    return { token, name };
+    const keep = body.keep !== false;
+    const token = newSession({ role: 'admin', label: `Admin · ${name}`, profile: { name }, since: new Date().toISOString() }, { keepDays: keep ? 30 : 0.5 });
+    ledger.append('admin_signed_in', { name, ip, keep }, 'admin');
+    return { token, name, keep };
+  });
+  route('POST', '/api/admin/password', ({ req, body }) => {
+    const s = sessionFrom(req, { role: 'admin' });
+    if (!adminCodeOk(body.current)) throw new HttpError(403, 'the current password is not correct');
+    const next = String(body.next ?? '');
+    if (next.length < 6) throw new HttpError(400, 'use at least 6 characters');
+    if (body.confirm != null && String(body.confirm) !== next) throw new HttpError(400, 'the two new passwords do not match');
+    auth.password = { ...hashPassword(next), updatedAt: new Date().toISOString(), by: s.profile?.name ?? 'admin' };
+    saveAuth();
+    ledger.append('admin_password_changed', { by: s.profile?.name ?? 'admin' }, 'admin');
+    return { ok: true, updatedAt: auth.password.updatedAt };
+  });
+  route('POST', '/api/admin/open-demo', ({ req, body }) => {
+    const s = sessionFrom(req, { role: 'admin' });
+    if (!demoEnabled && body.on) throw new HttpError(409, 'open demo needs demo mode (COSYNE_DEMO=on)');
+    runtime.openDemo = Boolean(body.on);
+    saveRuntime();
+    ledger.append(runtime.openDemo ? 'open_demo_on' : 'open_demo_off', { by: s.profile?.name ?? 'admin' }, 'admin');
+    return { openDemo: openDemo() };
   });
   route('POST', '/api/admin/logout', ({ req }) => {
     const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     if (sessions.get(token)?.role === 'admin') sessions.delete(token);
+    auth.sessions = auth.sessions.filter((x) => x.hash !== tokenHash(token));
+    saveAuth();
     return { ok: true };
   });
 
@@ -1593,7 +1665,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
         { key: 'HOST / PORT', value: `${env.HOST ?? '0.0.0.0'}:${env.PORT ?? 3000}`, note: 'Listen address (behind nginx)' },
         { key: 'COSYNE_DEMO', value: demoEnabled ? 'on' : 'off', note: 'Sample Tulsa identities and the /api/samples endpoint' },
         { key: 'COSYNE_PILOT', value: env.COSYNE_PILOT ?? 'Tulsa Police Department pilot', note: 'Pilot name shown in the apps' },
-        { key: 'ADMIN_TOKEN', value: set('ADMIN_TOKEN') ? 'set' : demoEnabled ? 'demo default' : 'not set (admin disabled)', secret: true, note: 'Main admin console access code' },
+        { key: 'ADMIN_TOKEN', value: auth.password ? 'set (replaced by the admin password)' : set('ADMIN_TOKEN') ? 'set' : demoEnabled ? 'demo default' : 'not set (admin disabled)', secret: true, note: 'Main admin access code; an admin password set in Settings takes its place' },
         { key: 'DISPATCH_TOKEN', value: set('DISPATCH_TOKEN') ? 'set' : 'demo default', secret: true, note: 'Dispatch console access code' },
         { key: 'OFFICER_ENROLL_CODE', value: set('OFFICER_ENROLL_CODE') ? 'set' : 'demo default', secret: true, note: 'Agency enrollment code for officer credentials' },
         { key: 'STATE_ISSUER_TOKEN(S)', value: set('STATE_ISSUER_TOKEN') || set('STATE_ISSUER_TOKENS') ? 'set' : demoEnabled ? 'demo default' : 'not set (state console disabled)', secret: true, note: 'State Issuer Console access code(s)' },
@@ -1602,6 +1674,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
         { key: 'ANTHROPIC_API_KEY', value: aiClassify ? 'set (AI routing on)' : 'not set', secret: true, note: 'Claude second-pass triage' },
       ],
       dataDir: dataDir ?? null,
+      openDemo: openDemo(), demoMode: demoEnabled, passwordSet: Boolean(auth.password), passwordUpdatedAt: auth.password?.updatedAt ?? null,
     };
   });
 
@@ -1845,7 +1918,7 @@ export function createApp({ dataDir = path.join(here, '..', 'data'), env = proce
   function onHello(c, msg) {
     let data;
     if (msg.role === 'dispatch') {
-      if (!sameSecret(msg.token, dispatchToken) && !demoGrantValid(msg.token)) throw new Error('invalid dispatch token');
+      if (!sameSecret(msg.token, dispatchToken) && !demoGrantValid(msg.token) && !(msg.token === 'open-demo' && openDemo())) throw new Error('invalid dispatch token');
       const name = String(msg.name ?? '').trim().slice(0, 60);
       data = { role: 'dispatch', label: name ? `Dispatch · ${name}` : 'Dispatch', profile: { name: name || 'Dispatcher', agency: CENTERS[0].name } };
     } else if (msg.role === 'officer' || msg.role === 'driver') {

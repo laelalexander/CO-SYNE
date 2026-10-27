@@ -4,7 +4,7 @@ import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { generateHolderKeys, loadIdentity, saveIdentity, clearIdentity, signText, verifyCredentialLocally } from '../lib/keys.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
-import { hasDemoPass, redeemDemoPass } from '../lib/demo.js';
+import { hasDemoPass, openDemoBadge, redeemDemoPass } from '../lib/demo.js';
 import { $, $$, esc, initials, money, time, dateTime, vehicleLine, ALERT_LABEL, citationDocument, showDocument, toast, tone } from '../lib/ui.js';
 import { disablePush, enablePush, isIos, isStandalone, keepAwake, pushState, setBadge, vibrate } from '../lib/native.js';
 
@@ -51,6 +51,7 @@ async function init() {
   let offline;
   ({ config: S.config, trust: S.trust, offline } = await bootstrap());
   if (offline) S.offline = true;
+  openDemoBadge(S.config);
   $('#stage-tip').textContent = S.config.demo ? 'Demo mode: sample drivers are available on the welcome screen.' : '';
   if (hasDemoPass()) await startFromDemoLink();
   if (S.identity) connect(); else { setNet('not signed in', false); render(); }
@@ -729,9 +730,10 @@ async function renderWelcome() {
     <div class="feature">${icon('video')}<div><b>Stay in your car</b><span>Talk with the officer by video and text from your seat.</span></div></div>
     <div class="feature">${icon('siren')}<div><b>One-tap emergency</b><span>Your location and vehicle go straight to 911.</span></div></div>
     <div style="margin-top:auto;padding-top:20px" class="stack">
-      <button class="btn primary block pill-btn" id="w-apply">Apply for CO-SYNE</button>
+      ${S.config?.openDemo ? '<button class="btn primary block pill-btn" id="w-demo">Continue as a demo driver</button>' : ''}
+      <button class="btn ${S.config?.openDemo ? '' : 'primary '}block pill-btn" id="w-apply">Apply for CO-SYNE</button>
       <button class="btn block pill-btn" id="w-activate">Activate with a code</button>
-      ${S.config?.demo ? '<button class="btn block pill-btn" id="w-demo">Use a pilot demo driver</button>' : ''}
+      ${S.config?.demo && !S.config?.openDemo ? '<button class="btn block pill-btn" id="w-demo">Use a pilot demo driver</button>' : ''}
     </div></div>`;
   $('#w-demo')?.addEventListener('click', pickSample);
   $('#w-apply').onclick = applyForm;

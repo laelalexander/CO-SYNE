@@ -3,7 +3,7 @@
 import { api, bootstrap, openSession, url } from '../lib/session.js';
 import { Call } from '../lib/call.js';
 import { icon } from '../lib/icons.js';
-import { redeemDemoPass } from '../lib/demo.js';
+import { openDemoBadge, redeemDemoPass } from '../lib/demo.js';
 import {
   $, $$, esc, initials, money, time, timeSec, dateTime, ago, coords, vehicleLine, STOP_STATUS, UNIT_STATUS, UNIT_TONE, PRIORITY_TONE, ALERT_LABEL,
   citationDocument, reportDocument, showDocument, showModal, hideModal, toast, tone,
@@ -28,15 +28,15 @@ function renderLogin(msg = '') {
   const el = $('#login');
   el.classList.remove('hidden');
   el.innerHTML = `<div class="login-card"><div class="row" style="gap:12px;margin-bottom:16px"><img src="../icons/dispatch.svg" width="44" height="44" alt=""><div><h2>CO-SYNE Dispatch</h2><div class="small muted">${esc(S.config.region.name)} · ${esc(S.config.pilot)}</div></div></div>
-    <form id="login-form"><label>Dispatcher name</label><input name="name" required value="${esc(S.dispatcher?.name ?? '')}" placeholder="e.g. J. Morgan">
-      <label>Console access code</label><input name="token" type="password" required value="${esc(S.config.dispatchHint ?? '')}">
-      <button class="btn brand block lg" style="margin-top:16px">${icon('headset')} Sign in to the console</button></form>
+    <form id="login-form"><label>Dispatcher name</label><input name="name" required value="${esc(S.dispatcher?.name ?? (S.config.openDemo ? 'Demo dispatcher' : ''))}" placeholder="e.g. J. Morgan">
+      ${S.config.openDemo ? '' : `<label>Console access code</label><input name="token" type="password" required value="${esc(S.config.dispatchHint ?? '')}">`}
+      <button class="btn brand block lg" style="margin-top:16px">${icon('headset')} ${S.config.openDemo ? 'Continue' : 'Sign in to the console'}</button></form>
     <p class="small" style="color:var(--danger);min-height:1.2em">${esc(msg)}</p>
     <p class="tiny faint">Pilot access code. Production consoles use agency SSO with per-dispatcher accounts.</p></div>`;
   $('#login-form').onsubmit = (e) => {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
-    S.dispatcher = { name: f.name, token: f.token };
+    S.dispatcher = { name: f.name, token: S.config.openDemo ? 'open-demo' : f.token };
     try { sessionStorage.setItem('cosyne:dispatch', JSON.stringify(S.dispatcher)); } catch { /* ignore */ }
     connect();
   };
@@ -480,6 +480,7 @@ async function credentialForPeer(peerId) {
 // ---------- boot ----------
 async function init() {
   ({ config: S.config, trust: S.trust } = await bootstrap());
+  openDemoBadge(S.config);
   // A Demo Control link signs the console in without the access code.
   try {
     const r = await redeemDemoPass('dispatch');
