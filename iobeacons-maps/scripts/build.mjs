@@ -33,10 +33,16 @@ await build({
   external: ['maplibre-gl'],
   minify: !dev, sourcemap: true, legalComments: 'none', logLevel: 'info',
 });
+await build({
+  entryPoints: [r('client/console.js')],
+  outfile: r('public/console.js'),
+  bundle: true, format: 'esm', target: ['es2022'], platform: 'browser',
+  minify: !dev, sourcemap: true, legalComments: 'none', logLevel: 'info',
+});
 // 4. Version the bundle and stylesheet in the HTML so browsers never keep an old copy.
 const ver = async (f) => createHash('sha1').update(await readFile(r('public', f))).digest('hex').slice(0, 10);
-const v = { 'app.js': await ver('app.js'), 'app.css': await ver('app.css') };
-for (const page of ['index.html', 'embed.html']) {
+const v = { 'app.js': await ver('app.js'), 'app.css': await ver('app.css'), 'console.js': await ver('console.js'), 'console.css': await ver('console.css') };
+for (const page of ['index.html', 'embed.html', 'console/index.html']) {
   let html = await readFile(r('public', page), 'utf8');
   for (const [f, hash] of Object.entries(v)) html = html.replace(new RegExp(`(["'/])${f.replace('.', '\\.')}(\\?v=[0-9a-f]+)?(["'])`, 'g'), `$1${f}?v=${hash}$3`);
   await writeFile(r('public', page), html);

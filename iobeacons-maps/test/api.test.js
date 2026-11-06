@@ -287,3 +287,56 @@ test('website: contact form and satellite data', async () => {
   assert.ok(st.satellites.length > 0 && st.satellites[0].l1.startsWith('1 '));
   assert.equal((await anon.get('/space/nope')).status, 404);
 });
+
+test('admin console: staff only, inquiries flow and Fulllobby forwarding', async () => {
+  const http = await import('node:http');
+  const got = [];
+  const fl = http.createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { got.push({ auth: req.headers.authorization, sig: req.headers['x-iobeacons-signature'], body: JSON.parse(b) }); res.end('{}'); }); }).listen(0);
+  await new Promise((r) => fl.once('listening', r));
+  const { config } = await import('../src/config.js');
+  config.fulllobbyUrl = `http://127.0.0.1:${fl.address().port}/inquiries`;
+  config.fulllobbyKey = 'fl-test-key';
+  try {
+    const { c: outsider } = await signup('Outsider');
+    assert.equal((await outsider.get('/console/overview')).status, 403);
+    assert.equal((await client().get('/console/overview')).status, 401);
+
+    const staff = client();
+    let r = await staff.post('/signup', { name: 'Staff Person', email: 'staff@example.com', password: 'a-long-password', orgName: `Staff ${uniq()}` });
+    if (r.status !== 201) r = await staff.post('/login', { email: 'staff@example.com', password: 'a-long-password' });
+    assert.equal(r.status, r.status === 201 ? 201 : 200);
+
+    const tag = uniq();
+    assert.equal((await client().post('/contact', { name: `Fl ${tag}`, email: 'fl@example.com', message: 'Please call me back.', topic: 'Custom project' })).status, 200);
+    await new Promise((res) => setTimeout(res, 300));
+    const sent = got.find((g) => g.body.name === `Fl ${tag}`);
+    assert.ok(sent, 'inquiry reached Fulllobby');
+    assert.equal(sent.auth, 'Bearer fl-test-key');
+    assert.match(sent.sig, /^sha256=[0-9a-f]{64}$/);
+
+    const ov = (await staff.get('/console/overview')).data;
+    assert.ok(ov.counts.inquiries_7d >= 1 && ov.fulllobby === true);
+    const list = (await staff.get(`/console/inquiries?q=${tag}`)).data;
+    assert.equal(list.length, 1);
+    assert.equal(list[0].status, 'forwarded');
+    const id = list[0].id;
+    const upd = (await staff.patch(`/console/inquiries/${id}`, { status: 'open', note: 'Called, left voicemail.' })).data;
+    assert.equal(upd.status, 'open');
+    assert.equal(upd.notes.length, 1);
+    assert.equal((await staff.post(`/console/inquiries/${id}/reply`, { message: 'Thanks!' })).status, 503, 'no SMTP in tests');
+    assert.equal((await staff.post(`/console/inquiries/${id}/forward`, {})).status, 200);
+
+    const custs = (await staff.get('/console/customers')).data;
+    assert.ok(custs.length > 0);
+    const detail = (await staff.get(`/console/customers/${custs[0].id}`)).data;
+    assert.ok(detail.org && Array.isArray(detail.members));
+    const users = (await staff.get('/console/users?q=outsider')).data;
+    assert.ok(users.length >= 1);
+    const link = (await staff.post(`/console/users/${users[0].id}/reset-link`, {})).data;
+    assert.match(link.link, /#reset=/);
+    const sys = (await staff.get('/console/system')).data;
+    assert.ok(sys.services.find((s) => s.key === 'fulllobby').ready);
+    assert.equal((await staff.post(`/console/users/${users[0].id}/sign-out`, {})).status, 200);
+    assert.equal((await outsider.get('/session')).data.user, null, 'outsider signed out');
+  } finally { config.fulllobbyUrl = ''; fl.close(); }
+});

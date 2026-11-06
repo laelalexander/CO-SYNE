@@ -1,6 +1,6 @@
 // API client. The app is served under a base path such as /maps.
 export const BASE = (() => {
-  const p = location.pathname.replace(/\/(index\.html|embed\.html)?$/, '');
+  const p = location.pathname.replace(/\/console(\/.*)?$/, '').replace(/\/(index\.html|embed\.html)?$/, '');
   return p === '/' ? '' : p;
 })();
 export const API = `${BASE}/api`;

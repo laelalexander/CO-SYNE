@@ -243,3 +243,10 @@ create table if not exists contact_messages (
   page text,
   created_at timestamptz not null default now()
 );
+alter table contact_messages add column if not exists status text not null default 'new';
+alter table contact_messages add column if not exists assigned_to uuid references users(id) on delete set null;
+alter table contact_messages add column if not exists notes jsonb not null default '[]';
+alter table contact_messages add column if not exists forwarded_at timestamptz;
+alter table contact_messages add column if not exists forward_status text;
+alter table contact_messages add column if not exists updated_at timestamptz not null default now();
+create index if not exists contact_messages_status on contact_messages(status, created_at desc);

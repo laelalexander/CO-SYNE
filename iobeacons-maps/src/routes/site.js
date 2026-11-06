@@ -4,6 +4,7 @@ import { many, q } from '../db/pool.js';
 import { config } from '../config.js';
 import { sendEmail } from '../services/notify.js';
 import { SPACE_GROUPS, spaceGroup } from '../services/space.js';
+import { forwardInquiry } from '../services/fulllobby.js';
 import { ah, str, emailOk, rateLimit } from './util.js';
 
 // Things the public iobeacons.com pages use: the contact form and satellites.
@@ -28,12 +29,16 @@ router.post('/contact', ah(async (req, res) => {
   const company = str(b.company, { name: 'Company', max: 160 }) || null;
   const topic = str(b.topic, { name: 'Topic', max: 80 }) || null;
   const page = str(b.page, { name: 'Page', max: 300 }) || null;
-  await q('insert into contact_messages(name, email, company, topic, message, page) values ($1,$2,$3,$4,$5,$6)', [name, email, company, topic, message, page]);
+  const row = (await q('insert into contact_messages(name, email, company, topic, message, page) values ($1,$2,$3,$4,$5,$6) returning id', [name, email, company, topic, message, page])).rows[0];
+  forwardInquiry(row.id).catch(() => {});
   for (const to of config.staffEmails) {
     sendEmail(to, `IoBeacons contact: ${topic || 'General'} from ${name}`, `${name} <${email}>${company ? `\n${company}` : ''}\nTopic: ${topic || 'General'}\n\n${message}`).catch(() => {});
   }
   res.json({ ok: true });
 }));
+
+// Public settings the static pages read (for example the Fulllobby chat widget).
+router.get('/site-config', (_req, res) => { res.set('Cache-Control', 'public, max-age=300'); res.json({ chatWidget: config.fulllobbyWidget || null }); });
 
 router.get('/admin/contact', requireUser, requireStaff, ah(async (_req, res) => {
   res.json(await many('select id, name, email, company, topic, message, page, created_at from contact_messages order by created_at desc limit 300'));

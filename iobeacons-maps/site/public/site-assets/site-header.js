@@ -136,7 +136,7 @@ export function mountSiteFooter(target) {
     <div class="iobf-about"><div class="iobf-brand"><span class="iobh-mark" aria-hidden="true"></span>IO BEACONS</div><p>${esc(t('blurb'))}</p></div>
     ${FOOTER.map((c) => `<div><h4>${esc(t(c.title))}</h4><ul>${c.links.map(([k, p]) => `<li><a href="${p}">${esc(t(k))}</a></li>`).join('')}</ul></div>`).join('')}
   </div>
-  <div class="iobf-base"><span>${esc(t('tagline'))}</span><span>© ${new Date().getFullYear()} IoBeacons</span></div>`;
+  <div class="iobf-base"><span>${esc(t('tagline'))}</span><span>© ${new Date().getFullYear()} IoBeacons · <a href="/maps/console/">Staff</a></span></div>`;
   return target;
 }
 
@@ -145,6 +145,13 @@ if (typeof document !== 'undefined') {
   const auto = () => {
     document.querySelectorAll('[data-site-header]').forEach((el) => mountSiteHeader(el, { current: el.dataset.current }));
     document.querySelectorAll('[data-site-footer]').forEach((el) => mountSiteFooter(el));
+    // Fulllobby chat widget, when one is configured on the server.
+    if (document.querySelector('[data-site-header]')) {
+      fetch('/maps/api/site-config').then((r) => (r.ok ? r.json() : null)).then((c) => {
+        if (!c?.chatWidget || !/^https:\/\//.test(c.chatWidget) || document.getElementById('iob-chat')) return;
+        const sc = document.createElement('script'); sc.id = 'iob-chat'; sc.src = c.chatWidget; sc.async = true; document.body.append(sc);
+      }).catch(() => {});
+    }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto); else auto();
 }

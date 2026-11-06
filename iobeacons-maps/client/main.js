@@ -350,6 +350,7 @@ async function startApp() {
   const hash = new URLSearchParams(location.hash.slice(1));
   if (hash.get('invite')) { await acceptInvite(hash.get('invite')); return; }
   if (hash.get('reset')) { await openReset(hash.get('reset')); return; }
+  if (location.hash === '#signin=console') { try { sessionStorage.setItem('iob.next', `${BASE}/console/`); } catch { /* ignore */ } history.replaceState(null, '', `${BASE}/#signin`); }
   if (location.hash === '#signin' || location.hash === '#signup') { const tab = location.hash === '#signup' ? 'signup' : 'login'; history.replaceState(null, '', `${BASE}/`); setTimeout(() => openAuth(tab), 0); }
   // Deep links from the website: #space, #globe, #3d open Maps in that view.
   const view = ['#space', '#globe', '#3d'].includes(location.hash) ? location.hash.slice(1) : null;

@@ -44,6 +44,10 @@ export const config = {
     business: env.STRIPE_PRICE_BUSINESS || '',
   },
   trialDays: num(env.TRIAL_DAYS, 14),
+  // Fulllobby: website inquiries are sent here so its operators can handle them.
+  fulllobbyUrl: env.FULLLOBBY_INQUIRY_URL || '',
+  fulllobbyKey: env.FULLLOBBY_API_KEY || '',
+  fulllobbyWidget: env.FULLLOBBY_WIDGET_SRC || '',
   // Background jobs
   workerEnabled: bool(env.WORKER_ENABLED, true),
   workerIntervalSec: num(env.WORKER_INTERVAL_SEC, 60),
