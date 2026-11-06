@@ -6,6 +6,7 @@ import { context, HttpError } from './auth.js';
 import { router as accountRouter, stripeWebhook } from './routes/account.js';
 import { router as mapsRouter } from './routes/maps.js';
 import { router as opsRouter } from './routes/ops.js';
+import { router as siteRouter } from './routes/site.js';
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
 
@@ -36,7 +37,7 @@ export function buildApp() {
     next();
   };
   base.use('/api/v1', v1Guard, mapsRouter, opsRouter);
-  base.use('/api', accountRouter, mapsRouter, opsRouter);
+  base.use('/api', siteRouter, accountRouter, mapsRouter, opsRouter);
   base.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found.')));
 
   base.use(express.static(publicDir, {

@@ -275,3 +275,15 @@ test('password reset and change', async () => {
   const again = client();
   assert.equal((await again.post('/login', { email, password: 'third-password-here' })).status, 200);
 });
+
+test('website: contact form and satellite data', async () => {
+  const anon = client();
+  assert.equal((await anon.post('/contact', { name: 'Ana', email: 'bad', message: 'hello there' })).status, 400);
+  assert.equal((await anon.post('/contact', { name: 'Ana', email: 'ana@example.com', message: 'We want to map our depots.', topic: 'Custom project' })).status, 200);
+  assert.equal((await anon.get('/admin/contact')).status, 401, 'staff only');
+  const groups = (await anon.get('/space')).data;
+  assert.ok(groups.some((g) => g.key === 'stations'));
+  const st = (await anon.get('/space/stations')).data;
+  assert.ok(st.satellites.length > 0 && st.satellites[0].l1.startsWith('1 '));
+  assert.equal((await anon.get('/space/nope')).status, 404);
+});

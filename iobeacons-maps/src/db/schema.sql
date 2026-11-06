@@ -232,3 +232,14 @@ create table if not exists password_resets (
   created_at timestamptz not null default now()
 );
 create index if not exists password_resets_user on password_resets(user_id);
+
+create table if not exists contact_messages (
+  id bigserial primary key,
+  name text not null,
+  email text not null,
+  company text,
+  topic text,
+  message text not null,
+  page text,
+  created_at timestamptz not null default now()
+);

@@ -7,7 +7,10 @@ import {
 import { startDraw, stopDraw, saveEdit, stopEdit, describeGeometry } from './draw.js';
 import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, openSiteInspector } from './panels.js';
 import { openAuth, openSettings, openShare, showUpgrade, acceptInvite, openReset } from './settings.js';
-import { mountSiteHeader } from '../site/assets/site-header.js';
+import { mountSiteHeader } from '../site/public/site-assets/site-header.js';
+import { spacePanel, selectSat, toggleGroup } from './space.js';
+
+PANELS.space = spacePanel;
 
 // ---------- boot ----------
 export async function loadSession() {
@@ -84,10 +87,11 @@ function renderTop() {
     sh.hidden = !siteHeader;
     if (siteHeader) {
       mountSiteHeader(sh, {
-        current: 'mapsApp', flush: true,
+        current: 'maps', flush: true, inApp: true,
         account: s.user ? { label: s.user.name?.split(' ')[0] || 'Account', onClick: () => openSettings() } : null,
         onSignIn: () => openAuth('login'),
       });
+      document.documentElement.style.setProperty('--site-h', `${sh.offsetHeight || 47}px`);
     }
   }
   document.body.classList.toggle('has-site-header', siteHeader);
@@ -188,6 +192,7 @@ const RAIL = [
   ['devices', 'Devices', 'M12 2v4 M12 18v4 M2 12h4 M18 12h4 M12 16a4 4 0 100-8 4 4 0 000 8z'],
   ['alerts', 'Alerts', 'M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8 M10 20a2 2 0 004 0'],
   ['reports', 'Reports', 'M6 2h9l5 5v15H6z M14 2v6h6 M9 13h8 M9 17h6'],
+  ['space', 'Space', 'M12 12m-3 0a3 3 0 106 0 3 3 0 10-6 0 M3 16c3-2 15-10 18-8 M4.5 9.5C3 12 6 17 12 18'],
 ];
 let currentPanel = null;
 function renderRail() {
@@ -315,7 +320,8 @@ on('pointer', (ll) => { const el = $('#hud-coords'); if (el) el.textContent = `$
 on('hint', (t) => { const el = $('#hud-hint'); if (!el) return; el.textContent = t; el.hidden = !t; clearTimeout(el._t); el._t = setTimeout(() => { el.hidden = true; }, 5000); });
 
 // selection -> inspector
-on('select', (sel) => { if (!sel) { hideInspector(); return; } if (sel.system === 'site') return openSiteInspector(sel.feature.properties.id); emit('inspect', sel); });
+on('select', (sel) => { if (!sel) { hideInspector(); return; } if (sel.system === 'site') return openSiteInspector(sel.feature.properties.id); if (sel.system === 'sat') return selectSat(sel.feature.properties, $('#inspector')); emit('inspect', sel); });
+on('view-mode', () => renderTop());
 
 // ---------- demo banner ----------
 function renderBanner() {
@@ -344,7 +350,18 @@ async function startApp() {
   const hash = new URLSearchParams(location.hash.slice(1));
   if (hash.get('invite')) { await acceptInvite(hash.get('invite')); return; }
   if (hash.get('reset')) { await openReset(hash.get('reset')); return; }
-  if (location.hash === '#signin') { history.replaceState(null, '', `${BASE}/`); setTimeout(() => openAuth('login'), 0); }
+  if (location.hash === '#signin' || location.hash === '#signup') { const tab = location.hash === '#signup' ? 'signup' : 'login'; history.replaceState(null, '', `${BASE}/`); setTimeout(() => openAuth(tab), 0); }
+  // Deep links from the website: #space, #globe, #3d open Maps in that view.
+  const view = ['#space', '#globe', '#3d'].includes(location.hash) ? location.hash.slice(1) : null;
+  if (view) {
+    history.replaceState(null, '', `${BASE}/`);
+    const off = on('style-loaded', () => {
+      off();
+      if (view === '3d') { apply3d(true); map.easeTo({ zoom: 15.2, pitch: 62, bearing: -20, duration: 1400 }); renderTop(); }
+      if (view === 'globe') { setGlobe(true); renderTop(); }
+      if (view === 'space') { showPanel('space'); toggleGroup('stations', true).then(() => { showPanel('space'); map.easeTo({ zoom: 1.6, pitch: 0, duration: 1400 }); renderTop(); }); }
+    });
+  }
   if (hash.get('share')) return startShared(hash.get('share'));
   if (!state.session.org) { renderTop(); renderBanner(); openAuth('login'); return; }
   renderBanner();
@@ -359,7 +376,7 @@ async function startApp() {
   }
   renderRail();
   await openMap(id);
-  showPanel(window.innerWidth >= 900 ? 'layers' : null);
+  if (view !== 'space') showPanel(window.innerWidth >= 900 ? 'layers' : null);
   if (hash.get('settings')) openSettings(hash.get('settings'));
 }
 

@@ -399,6 +399,13 @@ const RENDER = {
             plans.map((p) => h('option', { value: p, selected: o.plan === p }, p))), h('div', { class: 'hint' }, o.effective !== o.plan ? `in effect: ${o.effective}` : '')),
           h('td', {}, o.members), h('td', {}, o.maps), h('td', {}, fmtNum(o.features)), h('td', {}, fmtNum(o.views)),
           h('td', {}, o.plan === 'trial' ? h('button', { class: 'btn small', onclick: async () => { try { await patch(`/admin/orgs/${o.id}`, { extend_trial_days: 14 }); toast('Trial extended 14 days.'); } catch (ex) { err(ex); } } }, '+14 days') : null))))));
+    // Messages from the iobeacons.com contact form.
+    const msgs = await get('/admin/contact').catch(() => []);
+    pane.append(h('h3', { style: { marginTop: '28px' } }, `Contact form messages (${msgs.length})`),
+      msgs.length ? h('div', { class: 'stack' }, msgs.map((m) => h('div', { class: 'card' },
+        h('div', {}, h('strong', {}, m.name), ' · ', h('a', { href: `mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.topic || 'your message to IoBeacons'}`)}` }, m.email), m.company ? ` · ${m.company}` : ''),
+        h('div', { class: 'hint' }, `${m.topic || 'General'} · ${fmtDate(m.created_at)}`),
+        h('p', { class: 'pre' }, m.message)))) : h('p', { class: 'muted' }, 'No messages yet.'));
   },
 };
 

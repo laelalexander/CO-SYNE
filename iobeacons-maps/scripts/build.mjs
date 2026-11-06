@@ -1,7 +1,8 @@
 // Builds the browser app: copies MapLibre into public/vendor, writes the static
 // catalog used by shared maps, and bundles client/ into public/app.js.
 import { build } from 'esbuild';
-import { cp, mkdir, writeFile, readdir } from 'node:fs/promises';
+import { cp, mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -32,5 +33,13 @@ await build({
   external: ['maplibre-gl'],
   minify: !dev, sourcemap: true, legalComments: 'none', logLevel: 'info',
 });
+// 4. Version the bundle and stylesheet in the HTML so browsers never keep an old copy.
+const ver = async (f) => createHash('sha1').update(await readFile(r('public', f))).digest('hex').slice(0, 10);
+const v = { 'app.js': await ver('app.js'), 'app.css': await ver('app.css') };
+for (const page of ['index.html', 'embed.html']) {
+  let html = await readFile(r('public', page), 'utf8');
+  for (const [f, hash] of Object.entries(v)) html = html.replace(new RegExp(`(["'/])${f.replace('.', '\\.')}(\\?v=[0-9a-f]+)?(["'])`, 'g'), `$1${f}?v=${hash}$3`);
+  await writeFile(r('public', page), html);
+}
 console.log('build ok');
 process.exit(0);

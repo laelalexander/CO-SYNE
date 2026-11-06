@@ -5,3 +5,4 @@ public/app.js.map
 .env
 data/
 client/catalog-static.js
+site/dist/
