@@ -80,6 +80,10 @@ function renderTop() {
       brand.logo ? h('img', { src: brand.logo, alt: '', class: 'brand-logo' }) : h('span', { class: 'brand-dot' }),
       h('span', { class: 'brand-name' }, brand.name)),
   );
+  // Way back to the main IoBeacons site (hidden for white-label brands and embeds).
+  if (!state.embed && brand.name === 'IoBeacons Maps') {
+    top.append(h('a', { class: 'site-link', href: 'https://iobeacons.com/', title: 'Back to IoBeacons.com' }, '← IoBeacons.com'));
+  }
   if (!state.embed && s.orgs?.length > 1) {
     const sel = h('select', { class: 'ws-switch', 'aria-label': 'Workspace', onchange: async (e) => { await post('/orgs/switch', { org_id: e.target.value }); location.hash = ''; location.reload(); } },
       s.orgs.map((o) => h('option', { value: o.id, selected: o.id === s.org?.id }, o.name)));
