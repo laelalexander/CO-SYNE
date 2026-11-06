@@ -7,12 +7,13 @@ import {
 import { startDraw, stopDraw, saveEdit, stopEdit, describeGeometry } from './draw.js';
 import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, openSiteInspector } from './panels.js';
 import { openAuth, openSettings, openShare, showUpgrade, acceptInvite, openReset } from './settings.js';
+import { mountSiteHeader } from '../site/assets/site-header.js';
 
 // ---------- boot ----------
 export async function loadSession() {
   state.session = await get('/session');
   document.title = `${state.session.brand.name}`;
-  document.documentElement.style.setProperty('--brand', state.session.brand.color || '#1f5fbf');
+  document.documentElement.style.setProperty('--brand', state.session.brand.color || '#2876ee');
   return state.session;
 }
 
@@ -75,21 +76,29 @@ function renderTop() {
   const s = state.session;
   const top = clear($('#topbar'));
   const brand = s.brand;
-  top.append(
-    h('a', { class: 'brand', href: `${BASE}/`, title: brand.name },
-      brand.logo ? h('img', { src: brand.logo, alt: '', class: 'brand-logo' }) : h('span', { class: 'brand-dot' }),
-      h('span', { class: 'brand-name' }, brand.name)),
-  );
-  // Way back to the main IoBeacons site (hidden for white-label brands and embeds).
-  if (!state.embed && brand.name === 'IoBeacons Maps') {
-    top.append(h('a', { class: 'site-link', href: 'https://iobeacons.com/', title: 'Back to IoBeacons.com' }, '← IoBeacons.com'));
+  // IoBeacons-branded workspaces sit under the same header as iobeacons.com.
+  // White-label brands and embeds keep their own brand instead.
+  const siteHeader = !state.embed && brand.name === 'IoBeacons Maps';
+  const sh = $('#site-header');
+  if (sh) {
+    sh.hidden = !siteHeader;
+    if (siteHeader) {
+      mountSiteHeader(sh, {
+        current: 'mapsApp', flush: true,
+        account: s.user ? { label: s.user.name?.split(' ')[0] || 'Account', onClick: () => openSettings() } : null,
+        onSignIn: () => openAuth('login'),
+      });
+    }
   }
-  if (!state.embed && s.orgs?.length > 1) {
-    const sel = h('select', { class: 'ws-switch', 'aria-label': 'Workspace', onchange: async (e) => { await post('/orgs/switch', { org_id: e.target.value }); location.hash = ''; location.reload(); } },
-      s.orgs.map((o) => h('option', { value: o.id, selected: o.id === s.org?.id }, o.name)));
-    top.append(sel);
-  } else if (!state.embed && s.org) {
-    top.append(h('span', { class: 'ws-name' }, s.demo ? 'Open demo' : s.org.name));
+  document.body.classList.toggle('has-site-header', siteHeader);
+  if (!siteHeader) {
+    top.append(
+      h('a', { class: 'brand', href: `${BASE}/`, title: brand.name },
+        brand.logo ? h('img', { src: brand.logo, alt: '', class: 'brand-logo' }) : h('span', { class: 'brand-dot' }),
+        h('span', { class: 'brand-name' }, brand.name)),
+    );
+  } else {
+    top.append(h('span', { class: 'product-name' }, 'Maps'));
   }
   if (state.mapRec) {
     const title = h('button', { class: 'map-title', title: isEditor() ? 'Rename map' : state.mapRec.name, onclick: () => isEditor() && renameMap() }, state.mapRec.name);
@@ -133,6 +142,8 @@ function renderTop() {
   if (state.mapRec && !state.shareToken && isEditor()) top.append(h('button', { class: 'btn primary small', onclick: () => openShare() }, 'Share'));
   if (s.user) {
     top.append(h('button', { class: 'btn small keep', onclick: () => openSettings() }, s.role === 'owner' && !s.demo ? 'Settings' : 'Account'));
+  } else if (siteHeader) {
+    top.append(h('button', { class: 'btn primary small trial', onclick: () => openAuth('signup') }, 'Start free trial'));
   } else if (!state.shareToken) {
     top.append(h('button', { class: 'btn small keep', onclick: () => openAuth('login') }, 'Sign in'), h('button', { class: 'btn primary small trial', onclick: () => openAuth('signup') }, 'Start free trial'));
   }
@@ -333,6 +344,7 @@ async function startApp() {
   const hash = new URLSearchParams(location.hash.slice(1));
   if (hash.get('invite')) { await acceptInvite(hash.get('invite')); return; }
   if (hash.get('reset')) { await openReset(hash.get('reset')); return; }
+  if (location.hash === '#signin') { history.replaceState(null, '', `${BASE}/`); setTimeout(() => openAuth('login'), 0); }
   if (hash.get('share')) return startShared(hash.get('share'));
   if (!state.session.org) { renderTop(); renderBanner(); openAuth('login'); return; }
   renderBanner();

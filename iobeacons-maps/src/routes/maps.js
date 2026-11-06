@@ -15,7 +15,7 @@ export const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxUploadMb * 1024 * 1024, files: 1 } });
 const editor = requireRole('editor');
 
-const DEFAULT_STYLE = { color: '#1f5fbf', opacity: 0.35, width: 2, radius: 6, mode: 'simple' };
+const DEFAULT_STYLE = { color: '#2876ee', opacity: 0.35, width: 2, radius: 6, mode: 'simple' };
 const FEATURE_CAP = 20000; // features sent as GeoJSON per request; larger layers use vector tiles
 
 // ---- access helpers ----
@@ -291,7 +291,7 @@ router.post('/maps/:id/upload', editor, upload.single('file'), ah(async (req, re
   if (!fc.features.length) throw new HttpError(400, `No usable features found in ${req.file.originalname}.`);
   const name = str(req.body.name, { name: 'Layer name', max: 120 }) || req.file.originalname.replace(/\.(geojson|json|kml|kmz|gpx|csv|txt|zip)$/i, '');
   const pos = (await one('select coalesce(max(position),0)+1 p from layers where map_id=$1', [map.id])).p;
-  const palette = ['#1f5fbf', '#d9781a', '#0f766e', '#7c3aed', '#c2362f', '#4d7c0f'];
+  const palette = ['#2876ee', '#d9781a', '#0f766e', '#7c3aed', '#c2362f', '#4d7c0f'];
   const layer = await one('insert into layers(map_id, org_id, name, kind, style, position, source_file) values ($1,$2,$3,$4,$5,$6,$7) returning *',
     [map.id, req.ctx.org.id, name, 'features', { ...DEFAULT_STYLE, color: palette[pos % palette.length] }, pos, req.file.originalname]);
   try {
@@ -336,7 +336,7 @@ router.get('/public/maps/:token', ah(async (req, res) => {
   const map = await sharedMap(req.params.token);
   const plan = planFor(map.org);
   bump(map.org_id, 'mapViews').catch(() => {});
-  const brand = plan.features.whiteLabel ? { name: map.org.brand?.name || map.org.name, color: map.org.brand?.color || '#1f5fbf', logo: map.org.brand?.logo || '' } : { name: 'IoBeacons Maps', color: '#1f5fbf', logo: '' };
+  const brand = plan.features.whiteLabel ? { name: map.org.brand?.name || map.org.name, color: map.org.brand?.color || '#2876ee', logo: map.org.brand?.logo || '' } : { name: 'IoBeacons Maps', color: '#2876ee', logo: '' };
   const { org: _org, share_token: _t, ...rest } = map;
   res.json({ ...rest, layers: (await layersOf(map.id)).filter((l) => l.visible), brand, embedsAllowed: plan.features.embeds });
 }));

@@ -16,8 +16,8 @@ import { ah, str, emailOk, uuid, slugify, rateLimit } from './util.js';
 export const router = Router();
 
 function brandOf(org, plan) {
-  if (!org || !plan?.features.whiteLabel) return { name: 'IoBeacons Maps', color: '#1f5fbf', logo: '' };
-  return { name: org.brand?.name || org.name, color: org.brand?.color || '#1f5fbf', logo: org.brand?.logo || '' };
+  if (!org || !plan?.features.whiteLabel) return { name: 'IoBeacons Maps', color: '#2876ee', logo: '' };
+  return { name: org.brand?.name || org.name, color: org.brand?.color || '#2876ee', logo: org.brand?.logo || '' };
 }
 
 router.get('/session', ah(async (req, res) => {

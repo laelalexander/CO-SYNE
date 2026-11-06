@@ -1,14 +1,14 @@
 /* IoBeacons Maps */
 :root {
-  --brand: #1f5fbf;
+  --brand: #2876ee;
   --accent: var(--brand);
-  --beacon: #d9781a;
-  --bg: #f4f6f9;
+  --beacon: #ff713d;
+  --bg: #f7f8fb;
   --panel: #ffffff;
   --panel-2: #f7f9fc;
   --line: #dfe4ec;
   --line-2: #c9d1dd;
-  --ink: #16202e;
+  --ink: #071a33;
   --ink-2: #3b4757;
   --muted: #5a6678;
   --faint: #8a94a6;
@@ -17,8 +17,8 @@
   --bad: #c2362f;
   --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .10);
   --radius: 10px;
-  --font: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --display: 'Archivo', var(--font);
+  --font: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --display: var(--font);
   --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
   --top-h: 52px;
   --rail-w: 68px;
@@ -369,3 +369,10 @@ body[data-mode="embed"] .topbar .seg-btn.solo { display: none; }
   .auth-points, .auth-foot { display: none; }
   .auth-main { justify-content: flex-start; }
 }
+
+/* ---- under the shared iobeacons.com header ---- */
+#site-header { position: relative; z-index: 25; flex: none; }
+body.has-site-header .topbar { height: 46px; background: var(--panel-2); }
+.product-name { font-weight: 800; letter-spacing: -.02em; font-size: 15px; padding-right: 4px; border-right: 1px solid var(--line); padding: 2px 12px 2px 2px; }
+.iobh-product { font-weight: 600; letter-spacing: 0; color: var(--muted); padding-left: 10px; margin-left: 2px; border-left: 1px solid var(--line); }
+@media (prefers-color-scheme: dark) { .iobh-bar { background: rgba(255,255,255,.96) !important; } }
