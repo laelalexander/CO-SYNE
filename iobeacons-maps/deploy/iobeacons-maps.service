@@ -1,0 +1,24 @@
+[Unit]
+Description=IoBeacons Maps (map builder, data catalog, alerts, reports)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=iobmaps
+Group=iobmaps
+WorkingDirectory=/opt/iobeacons-maps
+EnvironmentFile=/etc/iobeacons-maps/iobeacons-maps.env
+ExecStart=/usr/bin/node --max-old-space-size=256 src/server.js
+Restart=always
+RestartSec=3
+# Keep it light on a shared server.
+MemoryMax=450M
+CPUQuota=80%
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

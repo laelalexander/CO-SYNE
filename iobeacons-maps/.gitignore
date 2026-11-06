@@ -1,0 +1,7 @@
+node_modules/
+public/vendor/
+public/app.js
+public/app.js.map
+.env
+data/
+client/catalog-static.js

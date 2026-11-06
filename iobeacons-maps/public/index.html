@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IoBeacons Maps</title>
+<meta name="description" content="IoBeacons Maps: build maps, track assets, watch weather and hazards, and run site reports.">
+<meta name="theme-color" content="#1f5fbf">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%231f5fbf'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23d9781a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
+<link rel="stylesheet" href="app.css">
+<script type="importmap">{ "imports": { "maplibre-gl": "./vendor/maplibre/maplibre-gl.mjs" } }</script>
+</head>
+<body data-mode="app">
+<div id="app">
+  <header id="topbar" class="topbar"></header>
+  <div id="banner" class="banner" hidden></div>
+  <div class="workspace">
+    <nav id="rail" class="rail" aria-label="Panels"></nav>
+    <aside id="side" class="side" hidden></aside>
+    <main class="map-wrap">
+      <div id="map" class="map" aria-label="Map"></div>
+      <div id="drawbar" class="drawbar" hidden></div>
+      <div id="editbar" class="editbar" hidden></div>
+      <div id="inspector" class="inspector" hidden></div>
+      <div id="legend" class="legend" hidden></div>
+      <div class="hud">
+        <span id="hud-draw"></span>
+        <span id="hud-measure" class="hud-measure" hidden></span>
+        <span id="hud-hint" class="hud-hint" hidden></span>
+        <span id="hud-coords" class="mono"></span>
+      </div>
+    </main>
+  </div>
+</div>
+<noscript>IoBeacons Maps needs JavaScript.</noscript>
+<script type="module" src="app.js"></script>
+</body>
+</html>
