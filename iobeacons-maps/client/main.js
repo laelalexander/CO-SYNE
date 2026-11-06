@@ -8,7 +8,7 @@ import { startDraw, stopDraw, saveEdit, stopEdit, describeGeometry } from './dra
 import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, openSiteInspector } from './panels.js';
 import { openAuth, openSettings, openShare, showUpgrade, acceptInvite, openReset } from './settings.js';
 import { mountSiteHeader } from '../site/public/site-assets/site-header.js';
-import { spacePanel, selectSat, toggleGroup } from './space.js';
+import { spacePanel, selectSat, toggleGroup, setSatellites, spaceOn } from './space.js';
 
 PANELS.space = spacePanel;
 
@@ -140,7 +140,8 @@ function renderTop() {
     }, st.label)));
   top.append(styleSel,
     h('button', { class: 'seg-btn solo', 'aria-pressed': String(state.mode3d), title: '3D terrain and buildings', onclick: () => { apply3d(!state.mode3d); renderTop(); } }, '3D'),
-    h('button', { class: 'seg-btn solo', 'aria-pressed': String(state.globe), title: 'Globe view', onclick: () => { setGlobe(!state.globe); renderTop(); } }, 'Globe'));
+    h('button', { class: 'seg-btn solo', 'aria-pressed': String(state.globe), title: 'Globe view with satellites', onclick: async () => { const on = !state.globe; setGlobe(on); renderTop(); if (on && !spaceOn()) await setSatellites(true); } }, 'Globe'),
+    h('button', { class: 'seg-btn solo', 'aria-pressed': String(spaceOn()), title: 'Live satellites', onclick: async () => { await setSatellites(!spaceOn()); renderTop(); } }, 'Satellites'));
 
   if (state.embed) return;
   if (state.mapRec && !state.shareToken && isEditor()) top.append(h('button', { class: 'btn primary small', onclick: () => openShare() }, 'Share'));
@@ -322,6 +323,7 @@ on('hint', (t) => { const el = $('#hud-hint'); if (!el) return; el.textContent =
 // selection -> inspector
 on('select', (sel) => { if (!sel) { hideInspector(); return; } if (sel.system === 'site') return openSiteInspector(sel.feature.properties.id); if (sel.system === 'sat') return selectSat(sel.feature.properties, $('#inspector')); emit('inspect', sel); });
 on('view-mode', () => renderTop());
+on('space-changed', () => { if (currentPanel === 'space') showPanel('space'); });
 
 // ---------- demo banner ----------
 function renderBanner() {
@@ -359,8 +361,8 @@ async function startApp() {
     const off = on('style-loaded', () => {
       off();
       if (view === '3d') { apply3d(true); map.easeTo({ zoom: 15.2, pitch: 62, bearing: -20, duration: 1400 }); renderTop(); }
-      if (view === 'globe') { setGlobe(true); renderTop(); }
-      if (view === 'space') { showPanel('space'); toggleGroup('stations', true).then(() => { showPanel('space'); map.easeTo({ zoom: 1.6, pitch: 0, duration: 1400 }); renderTop(); }); }
+      if (view === 'globe') { setGlobe(true); setSatellites(true); renderTop(); }
+      if (view === 'space') { showPanel('space'); setSatellites(true).then(() => { showPanel('space'); map.easeTo({ zoom: 1.6, pitch: 0, duration: 1400 }); renderTop(); }); }
     });
   }
   if (hash.get('share')) return startShared(hash.get('share'));

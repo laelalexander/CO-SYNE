@@ -9,6 +9,8 @@ export const SPACE_GROUPS = [
   { key: 'earth', name: 'Earth observation', color: '#1bb782', celestrak: 'resource' },
   { key: 'gps', name: 'GPS', color: '#a855f7', celestrak: 'gps-ops' },
   { key: 'science', name: 'Science', color: '#eab308', celestrak: 'science' },
+  { key: 'starlink', name: 'Starlink', color: '#94a3b8', celestrak: 'starlink', limit: 9000, optional: true },
+  { key: 'active', name: 'All active satellites', color: '#64748b', celestrak: 'active', limit: 14000, optional: true },
 ];
 
 // Parses 3-line TLE text into [{ name, l1, l2 }].
@@ -47,7 +49,9 @@ const SAMPLE = {
   earth: [makeTle('LANDSAT 9', 49260, 98.2, 10, 0.0001, 90, 300, 14.57), makeTle('SENTINEL-2A', 40697, 98.6, 200, 0.0001, 90, 50, 14.31)],
   gps: [makeTle('GPS BIIF-1', 36585, 55, 30, 0.01, 40, 30, 2.0056), makeTle('GPS III-1', 43873, 55, 150, 0.002, 200, 120, 2.0056)],
   science: [makeTle('HST', 20580, 28.47, 250, 0.0002, 60, 80, 15.1)],
+  starlink: Array.from({ length: 24 }, (_, i) => makeTle(`STARLINK-${1000 + i}`, 44000 + i, 53, (i % 6) * 60, 0.0001, 0, (i * 47) % 360, 15.06)),
 };
+SAMPLE.active = [...SAMPLE.stations, ...SAMPLE.weather, ...SAMPLE.earth, ...SAMPLE.gps, ...SAMPLE.science, ...SAMPLE.starlink];
 
 export async function spaceGroup(key) {
   const g = SPACE_GROUPS.find((x) => x.key === key);
@@ -61,5 +65,5 @@ export async function spaceGroup(key) {
     } catch { sats = []; }
     if (!sats.length) sats = SAMPLE[key];
   }
-  return { key: g.key, name: g.name, color: g.color, source: 'CelesTrak', satellites: sats.slice(0, 400) };
+  return { key: g.key, name: g.name, color: g.color, source: 'CelesTrak', satellites: (sats || []).slice(0, g.limit || 400) };
 }

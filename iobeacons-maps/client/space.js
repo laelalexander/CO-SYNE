@@ -111,13 +111,23 @@ function tick() {
 
 function start() {
   clearInterval(timer);
-  timer = setInterval(tick, 1000);
+  // Thousands of satellites (Starlink, all active) update every 3 seconds instead of every second.
+  const total = [...enabled].reduce((n, k) => n + (groups.get(k)?.sats.length || 0), 0);
+  timer = setInterval(tick, total > 2500 ? 3000 : 1000);
   tick();
 }
 function stop() {
   clearInterval(timer); timer = null;
   for (const id of ['X-sats-label', 'X-sats-dot', 'X-sats-glow', 'X-sat-track']) if (map?.getLayer(id)) map.removeLayer(id);
   for (const id of ['X-sats', 'X-sat-track']) if (map?.getSource(id)) map.removeSource(id);
+}
+
+// The main groups, shown together when someone turns on satellites or the globe.
+export const DEFAULT_GROUPS = ['stations', 'weather', 'earth', 'gps', 'science'];
+export async function setSatellites(onOff) {
+  if (onOff) { await Promise.all(DEFAULT_GROUPS.map((k) => loadGroup(k).catch(() => null))); DEFAULT_GROUPS.forEach((k) => groups.has(k) && enabled.add(k)); if (!state.globe) { setGlobe(true); } if (map && map.getZoom() > 2) map.easeTo({ zoom: 1.6, pitch: 0, duration: 1400 }); start(); }
+  else { enabled.clear(); selected = null; hideSel(); stop(); }
+  emit('view-mode'); emit('space-changed');
 }
 
 export async function toggleGroup(key, onOff) {
@@ -177,20 +187,29 @@ export async function spacePanel(side) {
   const body = h('div', { class: 'stack' }, h('p', { class: 'muted' }, 'Loading satellite groups…'));
   side.append(h('div', { class: 'panel-head' }, h('h2', {}, 'Space')), body);
   try { list ||= await get('/space'); } catch (e) { clear(body).append(h('p', { class: 'muted' }, e.message)); return; }
-  const rows = list.map((g) => {
+  const row = (g) => {
     const box = h('input', { type: 'checkbox', checked: enabled.has(g.key) || undefined });
     const count = h('span', { class: 'count' }, groups.get(g.key)?.sats.length ?? '');
     box.addEventListener('change', async () => {
       box.disabled = true;
+      if (g.optional && box.checked) count.textContent = 'loading…';
       await toggleGroup(g.key, box.checked);
       box.disabled = false;
       count.textContent = groups.get(g.key)?.sats.length ?? '';
+      emit('view-mode');
     });
     return h('label', { class: 'layer-row space-row' }, box, h('span', { class: 'swatch', style: { background: g.color } }), h('span', { class: 'grow' }, g.name), count);
-  });
+  };
+  const rows = list.filter((g) => !g.optional).map(row);
+  const big = list.filter((g) => g.optional).map(row);
   clear(body).append(
     h('section', { class: 'panel-sec' }, h('p', { class: 'muted', style: { margin: 0 } }, 'Show live satellites over your map. Turning one on switches to the globe so you can see whole orbits. Click a satellite for its path, height and speed.')),
-    h('section', { class: 'panel-sec' }, h('h3', { class: 'sec-title' }, 'Satellites'), ...rows),
+    h('section', { class: 'panel-sec' }, h('h3', { class: 'sec-title' }, 'Satellites'), ...rows,
+      h('div', { class: 'row', style: { marginTop: '8px' } },
+        h('button', { class: 'btn small', onclick: async () => { await setSatellites(true); emit('space-changed'); } }, 'Show all of these'),
+        h('button', { class: 'btn small', onclick: async () => { await setSatellites(false); emit('space-changed'); } }, 'Hide satellites'))),
+    big.length ? h('section', { class: 'panel-sec' }, h('h3', { class: 'sec-title' }, 'Large constellations'), ...big,
+      h('p', { class: 'hint', style: { margin: '6px 0 0' } }, 'Thousands of satellites. They update every few seconds and may slow older computers.')) : null,
     h('section', { class: 'panel-sec' }, h('h3', { class: 'sec-title' }, 'View'),
       h('div', { class: 'row' },
         h('button', { class: 'btn small', onclick: () => { setGlobe(true); emit('view-mode'); map.easeTo({ zoom: 1.6, pitch: 0, duration: 1200 }); } }, 'Whole Earth'),
