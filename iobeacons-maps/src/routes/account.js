@@ -73,6 +73,57 @@ router.post('/login', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ---- passwords ----
+const passwordOk = (p) => typeof p === 'string' && p.length >= 10 && p.length <= 200;
+
+// Always answers the same way so it can't be used to find out who has an account.
+router.post('/password/forgot', ah(async (req, res) => {
+  rateLimit(`forgot:${req.ip}`, 5, 900e3);
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!emailOk(email)) throw new HttpError(400, 'Enter a valid email address.');
+  const user = await one('select id, name from users where lower(email)=$1', [email]);
+  let emailReady = true;
+  if (user) {
+    const t = token();
+    await q("insert into password_resets(token_hash, user_id, expires_at) values ($1,$2, now() + interval '1 hour')", [sha256(t), user.id]);
+    const link = `${config.publicUrl}/#reset=${t}`;
+    const mail = await sendEmail(email, 'Reset your IoBeacons Maps password', `Hi ${user.name},\n\nUse this link to choose a new password. It works for one hour.\n\n${link}\n\nIf you didn't ask for this, you can ignore this email.`).catch((e) => ({ ok: false, error: e.message }));
+    emailReady = mail.ok || !mail.skipped;
+  } else emailReady = Boolean(config.smtpUrl);
+  res.json({ ok: true, emailReady });
+}));
+
+router.get('/password/reset/:token', ah(async (req, res) => {
+  const r = await one('select u.email from password_resets p join users u on u.id=p.user_id where p.token_hash=$1 and p.used_at is null and p.expires_at > now()', [sha256(req.params.token)]);
+  if (!r) throw new HttpError(404, 'This reset link has expired or was already used. Ask for a new one.');
+  res.json({ email: r.email });
+}));
+
+router.post('/password/reset', ah(async (req, res) => {
+  rateLimit(`reset:${req.ip}`, 10, 900e3);
+  const { password } = req.body;
+  if (!passwordOk(password)) throw new HttpError(400, 'Use a password of at least 10 characters.');
+  const r = await one('select user_id from password_resets where token_hash=$1 and used_at is null and expires_at > now()', [sha256(String(req.body.token || ''))]);
+  if (!r) throw new HttpError(404, 'This reset link has expired or was already used. Ask for a new one.');
+  await tx(async (c) => {
+    await c.query('update users set password_hash=$2 where id=$1', [r.user_id, await hashPassword(password)]);
+    await c.query('update password_resets set used_at=now() where user_id=$1 and used_at is null', [r.user_id]);
+    await c.query('delete from sessions where user_id=$1', [r.user_id]); // sign out everywhere
+  });
+  const m = await one('select org_id from memberships where user_id=$1 order by created_at limit 1', [r.user_id]);
+  await createSession(res, r.user_id, m?.org_id || null);
+  res.json({ ok: true });
+}));
+
+router.post('/password/change', requireUser, ah(async (req, res) => {
+  const u = await one('select password_hash from users where id=$1', [req.ctx.user.id]);
+  if (!(await checkPassword(String(req.body.current || ''), u.password_hash))) throw new HttpError(400, "Your current password isn't right.");
+  if (!passwordOk(req.body.password)) throw new HttpError(400, 'Use a new password of at least 10 characters.');
+  await q('update users set password_hash=$2 where id=$1', [req.ctx.user.id, await hashPassword(req.body.password)]);
+  await q('delete from sessions where user_id=$1 and id <> $2', [req.ctx.user.id, req.ctx.sessionId]);
+  res.json({ ok: true });
+}));
+
 router.post('/logout', ah(async (req, res) => { await destroySession(req, res); res.json({ ok: true }); }));
 
 router.post('/orgs', requireUser, ah(async (req, res) => {

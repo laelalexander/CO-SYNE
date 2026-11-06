@@ -223,3 +223,12 @@ create table if not exists http_cache (
 );
 
 create table if not exists meta (key text primary key, value jsonb not null);
+
+create table if not exists password_resets (
+  token_hash text primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists password_resets_user on password_resets(user_id);

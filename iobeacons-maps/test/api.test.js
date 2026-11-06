@@ -251,3 +251,26 @@ test('team invitations', async () => {
   assert.equal((await mate.patch(`/maps/${m.id}`, { name: 'nope' })).status, 403);
   assert.equal((await c.get('/org')).data.members.length, 2);
 });
+
+test('password reset and change', async () => {
+  const { c, email } = await signup('Forgetful');
+  const anon = client();
+  const f = await anon.post('/password/forgot', { email });
+  assert.equal(f.status, 200);
+  assert.equal(f.data.emailReady, false, 'no SMTP in tests');
+  assert.equal((await anon.post('/password/forgot', { email: 'nobody@example.com' })).status, 200);
+  // Use a token planted directly, since email is off in tests.
+  const { sha256 } = await import('../src/auth.js');
+  const uid = (await c.get('/session')).data.user.id;
+  await q("insert into password_resets(token_hash, user_id, expires_at) values ($1,$2, now() + interval '1 hour')", [sha256('tok-123'), uid]);
+  assert.equal((await anon.get('/password/reset/tok-123')).data.email, email);
+  assert.equal((await anon.post('/password/reset', { token: 'tok-123', password: 'short' })).status, 400);
+  assert.equal((await anon.post('/password/reset', { token: 'tok-123', password: 'a-brand-new-password' })).status, 200);
+  assert.equal((await anon.get('/session')).data.user.email, email, 'signed in after reset');
+  assert.equal((await c.get('/session')).data.user, null, 'old session signed out');
+  assert.equal((await anon.post('/password/reset', { token: 'tok-123', password: 'another-new-password' })).status, 404, 'single use');
+  assert.equal((await anon.post('/password/change', { current: 'wrong', password: 'zzzzzzzzzzzz' })).status, 400);
+  assert.equal((await anon.post('/password/change', { current: 'a-brand-new-password', password: 'third-password-here' })).status, 200);
+  const again = client();
+  assert.equal((await again.post('/login', { email, password: 'third-password-here' })).status, 200);
+});

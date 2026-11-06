@@ -6,7 +6,7 @@ import {
 } from './mapview.js';
 import { startDraw, stopDraw, saveEdit, stopEdit, describeGeometry } from './draw.js';
 import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, openSiteInspector } from './panels.js';
-import { openAuth, openSettings, openShare, showUpgrade, acceptInvite } from './settings.js';
+import { openAuth, openSettings, openShare, showUpgrade, acceptInvite, openReset } from './settings.js';
 
 // ---------- boot ----------
 export async function loadSession() {
@@ -132,9 +132,9 @@ function renderTop() {
   if (state.embed) return;
   if (state.mapRec && !state.shareToken && isEditor()) top.append(h('button', { class: 'btn primary small', onclick: () => openShare() }, 'Share'));
   if (s.user) {
-    top.append(h('button', { class: 'btn small', onclick: () => openSettings() }, s.role === 'owner' && !s.demo ? 'Settings' : 'Account'));
+    top.append(h('button', { class: 'btn small keep', onclick: () => openSettings() }, s.role === 'owner' && !s.demo ? 'Settings' : 'Account'));
   } else if (!state.shareToken) {
-    top.append(h('button', { class: 'btn small', onclick: () => openAuth('login') }, 'Sign in'), h('button', { class: 'btn primary small', onclick: () => openAuth('signup') }, 'Start free trial'));
+    top.append(h('button', { class: 'btn small keep', onclick: () => openAuth('login') }, 'Sign in'), h('button', { class: 'btn primary small trial', onclick: () => openAuth('signup') }, 'Start free trial'));
   }
 }
 export { renderTop };
@@ -332,6 +332,7 @@ async function startApp() {
   await loadSession();
   const hash = new URLSearchParams(location.hash.slice(1));
   if (hash.get('invite')) { await acceptInvite(hash.get('invite')); return; }
+  if (hash.get('reset')) { await openReset(hash.get('reset')); return; }
   if (hash.get('share')) return startShared(hash.get('share'));
   if (!state.session.org) { renderTop(); renderBanner(); openAuth('login'); return; }
   renderBanner();
