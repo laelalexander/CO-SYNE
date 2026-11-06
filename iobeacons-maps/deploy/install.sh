@@ -103,11 +103,13 @@ if grep -q 'location \^~ /maps/' "$NGINX_SITE"; then
 else
   cp "$NGINX_SITE" "/root/$(basename "$NGINX_SITE").bak-maps-$STAMP"
   # Insert the block into the HTTPS server block, before its first location.
-  python3 - "$NGINX_SITE" "$SRC/deploy/nginx-maps.conf" <<'PY'
+  python3 - "$NGINX_SITE" "$SRC/deploy/nginx-maps.conf" "${SITE_DOMAIN:-iobeacons.com}" <<'PY'
 import sys, re
 site, block = sys.argv[1], open(sys.argv[2]).read()
 text = open(site).read()
-# find the server block that listens on 443
+domain = sys.argv[3] if len(sys.argv) > 3 else 'iobeacons.com'
+# Pick the HTTPS server block that serves the main domain (not a www redirect).
+blocks = []
 for m in re.finditer(r'server\s*\{', text):
     depth, i = 0, m.end() - 1
     while i < len(text):
@@ -118,15 +120,19 @@ for m in re.finditer(r'server\s*\{', text):
         i += 1
     body = text[m.start():i]
     if 'listen 443' in body or 'listen [::]:443' in body:
-        loc = body.find('\n    location')
-        if loc < 0: loc = body.find('location')
-        pos = m.start() + (loc + 1 if loc >= 0 else len(body))
-        text = text[:pos] + block + '\n' + text[pos:]
-        open(site, 'w').write(text)
-        print('Inserted /maps/ block')
-        break
-else:
+        names = re.search(r'server_name\s+([^;]+);', body)
+        names = names.group(1).split() if names else []
+        score = (domain in names) * 2 + ('return 301' not in body)
+        blocks.append((score, m.start(), body))
+if not blocks:
     sys.exit('No HTTPS server block found; add deploy/nginx-maps.conf by hand.')
+score, start, body = max(blocks, key=lambda b: b[0])
+loc = body.find('\n    location')
+if loc < 0: loc = body.find('location')
+pos = start + (loc + 1 if loc >= 0 else len(body))
+text = text[:pos] + block + '\n' + text[pos:]
+open(site, 'w').write(text)
+print('Inserted /maps/ block')
 PY
   if nginx -t; then systemctl reload nginx; else
     echo "nginx test failed; restoring the previous config."
