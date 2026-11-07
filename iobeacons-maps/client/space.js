@@ -203,6 +203,10 @@ export async function spacePanel(side) {
   const rows = list.filter((g) => !g.optional).map(row);
   const big = list.filter((g) => g.optional).map(row);
   clear(body).append(
+    h('section', { class: 'panel-sec orbit-cta' },
+      h('h3', { class: 'sec-title' }, 'Live orbits in 3D'),
+      h('p', { class: 'muted', style: { margin: '0 0 8px' } }, 'Every tracked satellite, rocket body and piece of space debris at its real height, moving live. Speed up time, search, and follow any object along its path.'),
+      h('button', { class: 'btn primary small', onclick: () => window.dispatchEvent(new CustomEvent('iob-orbit')) }, 'Open live orbits')),
     h('section', { class: 'panel-sec' }, h('p', { class: 'muted', style: { margin: 0 } }, 'Show live satellites over your map. Turning one on switches to the globe so you can see whole orbits. Click a satellite for its path, height and speed.')),
     h('section', { class: 'panel-sec' }, h('h3', { class: 'sec-title' }, 'Satellites'), ...rows,
       h('div', { class: 'row', style: { marginTop: '8px' } },

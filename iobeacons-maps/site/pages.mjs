@@ -288,8 +288,8 @@ const space = {
     ${crumbs('<a href="/platform/">Platform</a>', 'Space')}
     <h1>Look up from the map.</h1>
     <p class="lede">Space in IoBeacons shows live satellites on the same globe as your sites and devices. See what is overhead, where it is going next and how high and fast it is moving.</p>
-    <div class="btns"><a class="btn btn-primary" href="/maps/#space">See live satellites now</a><a class="btn btn-ghost" href="/contact/">Ask about space data</a></div>
-    <div class="chips"><span>Updates every second</span><span>Public orbital data</span><span>In the browser</span></div>
+    <div class="btns"><a class="btn btn-primary" href="/maps/#orbit">Open live orbits in 3D</a><a class="btn btn-ghost" href="/maps/#space">Satellites on your map</a></div>
+    <div class="chips"><span>Satellites and debris in 3D</span><span>Speed up time</span><span>Public orbital data</span><span>In the browser</span></div>
   </div>
   <div class="hero-art">${GLOBE}</div>
 </div></section>
@@ -326,7 +326,7 @@ const space = {
       <li>Choose <strong>Space</strong> in the left-hand menu.</li>
       <li>Tick a group. The map turns into a globe and the satellites appear.</li>
     </ol>
-    <a class="btn btn-dark" href="/maps/#space">Open Space in Maps</a>
+    <a class="btn btn-dark" href="/maps/#orbit">Open live orbits</a>
   </div>
 </div></section>
 

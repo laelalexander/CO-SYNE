@@ -6,3 +6,5 @@ public/app.js.map
 data/
 client/catalog-static.js
 site/dist/
+public/orbit.js
+public/orbit.js.map

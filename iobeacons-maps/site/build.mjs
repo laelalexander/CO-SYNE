@@ -58,10 +58,10 @@ for (const p of PAGES) {
 }
 
 // Old addresses that now live elsewhere.
-const REDIRECTS = { 'satellite/': '/platform/space/', 'observe/': '/platform/space/', 'download/': '/network/#tracker', 'admin-signin/': '/maps/#signin' };
+const REDIRECTS = { 'satellite/': '/maps/#orbit', 'observe/': '/maps/#orbit', 'download/': '/network/#tracker', 'admin-signin/': '/maps/#signin' };
 for (const [from, to] of Object.entries(REDIRECTS)) {
   await mkdir(path.join(dist, from), { recursive: true });
-  await writeFile(path.join(dist, from, 'index.html'), `<!doctype html><meta charset="utf-8"><title>Moved</title><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=${to}"><link rel="canonical" href="${SITE.origin}${to}"><script>location.replace(${JSON.stringify(to)} + location.search)</script><a href="${to}">Continue</a>\n`);
+  await writeFile(path.join(dist, from, 'index.html'), `<!doctype html><meta charset="utf-8"><title>Moved</title><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=${to}"><link rel="canonical" href="${SITE.origin}${to}"><script>location.replace(${JSON.stringify(to.split('#')[0])} + location.search + ${JSON.stringify(to.includes('#') ? '#' + to.split('#')[1] : '')})</script><a href="${to}">Continue</a>\n`);
 }
 
 const listed = PAGES.filter((p) => !p.noindex);

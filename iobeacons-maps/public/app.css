@@ -393,3 +393,67 @@ body.has-site-header .auth-art { background:
 body.has-site-header .auth-card .btn.primary { background: var(--beacon); border-color: var(--beacon); }
 body.has-site-header .auth-card .btn.primary:hover { filter: brightness(.95); }
 body.has-site-header .auth-brand .brand-dot, body.has-site-header .auth-brand span:first-child { background: var(--beacon); }
+
+/* ---------- live orbital view ---------- */
+.orb { position: fixed; inset: 0; z-index: 60; background: #02050b; color: #dbe6f5; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+body.has-site-header .orb { top: var(--site-h, 47px); }
+.orb-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.orb-canvas:active { cursor: grabbing; }
+.orb-loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; color: #9fb2cc; text-align: center; padding: 20px; }
+.orb-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #1d3550; border-top-color: #ff7a2f; animation: orbspin 0.9s linear infinite; }
+@keyframes orbspin { to { transform: rotate(360deg); } }
+.orb-bar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+.orb-bar > * { pointer-events: auto; }
+.orb-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #2a3f5a; background: rgba(10, 20, 36, 0.86); color: #e6eefb; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; backdrop-filter: blur(6px); }
+.orb-btn:hover { border-color: #4b6a90; }
+.orb-btn:disabled { opacity: 0.45; cursor: default; }
+.orb-btn.on { background: #ff7a2f; border-color: #ff7a2f; color: #13100c; }
+.orb-btn.icon { width: 34px; padding: 0; justify-content: center; }
+.orb-btn.back { background: #ff7a2f; border-color: #ff7a2f; color: #13100c; }
+.orb-title { display: flex; flex-direction: column; line-height: 1.15; padding: 4px 10px; background: rgba(10, 20, 36, 0.7); border-radius: 8px; }
+.orb-title b { font-size: 15px; }
+.orb-title span { font-size: 12px; color: #9fb2cc; }
+.orb-find { position: relative; flex: 1 1 240px; max-width: 380px; }
+.orb-search { width: 100%; height: 34px; border-radius: 8px; border: 1px solid #2a3f5a; background: rgba(10, 20, 36, 0.86); color: #e6eefb; padding: 0 12px; font: inherit; }
+.orb-search::placeholder { color: #7f93ad; }
+.orb-hits { position: absolute; top: 40px; left: 0; right: 0; background: #0b1626; border: 1px solid #2a3f5a; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.orb-hit { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: none; border: 0; color: #e6eefb; font: inherit; text-align: left; cursor: pointer; }
+.orb-hit:hover, .orb-hit:focus { background: #15263d; }
+.orb-hit small { margin-left: auto; color: #7f93ad; }
+.orb-none { padding: 10px 12px; color: #9fb2cc; }
+.orb-time { display: flex; gap: 6px; align-items: center; }
+.orb-rate { height: 34px; border-radius: 8px; border: 1px solid #2a3f5a; background: rgba(10, 20, 36, 0.86); color: #e6eefb; font: inherit; padding: 0 8px; }
+.orb-clock { font-variant-numeric: tabular-nums; font-size: 12px; color: #9fb2cc; padding: 0 6px; white-space: nowrap; }
+.orb-clock.fast { color: #ffb37a; font-weight: 600; }
+.orb .k { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.orb-legend { position: absolute; left: 12px; bottom: 12px; width: 250px; padding: 10px 12px; background: rgba(10, 20, 36, 0.86); border: 1px solid #1e3049; border-radius: 10px; backdrop-filter: blur(6px); }
+.orb-chip { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+.orb-chip input { accent-color: #ff7a2f; margin: 0; }
+.orb-chip b { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; color: #b8c7da; }
+.orb-legend p { margin: 8px 0 0; font-size: 11.5px; color: #8296b0; }
+.orb-hud { position: absolute; right: 12px; bottom: 12px; font-size: 11px; color: #6f839d; font-variant-numeric: tabular-nums; }
+.orb-panel { position: absolute; right: 12px; top: 60px; width: 300px; max-height: calc(100% - 100px); overflow: auto; padding: 14px 16px; background: rgba(10, 20, 36, 0.92); border: 1px solid #1e3049; border-radius: 12px; backdrop-filter: blur(8px); }
+.orb-panel h3 { margin: 2px 0 10px; font-size: 18px; color: #fff; padding-right: 24px; }
+.orb-eyebrow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9fb2cc; }
+.orb-panel table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.orb-panel th { text-align: left; font-weight: 500; color: #8296b0; padding: 4px 8px 4px 0; white-space: nowrap; vertical-align: top; }
+.orb-panel td { padding: 4px 0; color: #e6eefb; font-variant-numeric: tabular-nums; }
+.orb-note { font-size: 12px; color: #8296b0; margin: 10px 0; }
+.orb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.orb-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 6px; border: 0; background: transparent; color: #9fb2cc; font-size: 15px; cursor: pointer; }
+.orb-x:hover { background: #15263d; color: #fff; }
+.orb-label { position: absolute; left: 0; top: 0; pointer-events: none; padding: 4px 8px; border-radius: 6px; background: rgba(10, 20, 36, 0.88); border: 1px solid #335377; font-size: 12px; display: flex; flex-direction: column; line-height: 1.2; white-space: nowrap; }
+.orb-label span { color: #9fb2cc; font-size: 11px; }
+.orbit-cta { background: linear-gradient(135deg, #0b1626, #14304f); color: #dbe6f5; border-radius: 10px; }
+.orbit-cta .sec-title { color: #fff; }
+.orbit-cta .muted { color: #b7c3d4 !important; }
+@media (max-width: 760px) {
+  .orb-title { display: none; }
+  .orb-find { order: 3; flex-basis: 100%; max-width: none; }
+  .orb-legend { width: auto; right: 12px; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+  .orb-legend p { display: none; }
+  .orb-chip b { margin-left: 4px; }
+  .orb-panel { left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; max-height: 48%; }
+  .orb-hud { display: none; }
+  .orb-btn.follow:disabled { display: none; }
+}

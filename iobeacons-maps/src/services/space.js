@@ -10,7 +10,11 @@ export const SPACE_GROUPS = [
   { key: 'gps', name: 'GPS', color: '#a855f7', celestrak: 'gps-ops' },
   { key: 'science', name: 'Science', color: '#eab308', celestrak: 'science' },
   { key: 'starlink', name: 'Starlink', color: '#94a3b8', celestrak: 'starlink', limit: 9000, optional: true },
-  { key: 'active', name: 'All active satellites', color: '#64748b', celestrak: 'active', limit: 14000, optional: true },
+  { key: 'active', name: 'All active satellites', color: '#64748b', celestrak: 'active', limit: 20000, optional: true },
+  { key: 'recent', name: 'Launched in the last 30 days', color: '#22d3ee', celestrak: 'last-30-days', limit: 2000, optional: true },
+  { key: 'debris-fy1c', name: 'Debris: Fengyun 1C', color: '#ef4444', celestrak: 'fengyun-1c-debris', limit: 5000, optional: true, debris: true },
+  { key: 'debris-cosmos', name: 'Debris: Cosmos 2251', color: '#f87171', celestrak: 'cosmos-2251-debris', limit: 5000, optional: true, debris: true },
+  { key: 'debris-iridium', name: 'Debris: Iridium 33', color: '#fca5a5', celestrak: 'iridium-33-debris', limit: 5000, optional: true, debris: true },
 ];
 
 // Parses 3-line TLE text into [{ name, l1, l2 }].
@@ -51,6 +55,11 @@ const SAMPLE = {
   science: [makeTle('HST', 20580, 28.47, 250, 0.0002, 60, 80, 15.1)],
   starlink: Array.from({ length: 24 }, (_, i) => makeTle(`STARLINK-${1000 + i}`, 44000 + i, 53, (i % 6) * 60, 0.0001, 0, (i * 47) % 360, 15.06)),
 };
+const debris = (name, base, inc, mm) => Array.from({ length: 40 }, (_, i) => makeTle(`${name} DEB`, base + i, inc + (i % 5) * 0.3, (i * 23) % 360, 0.004 + (i % 7) * 0.002, (i * 31) % 360, (i * 53) % 360, mm + (i % 9) * 0.05));
+SAMPLE['debris-fy1c'] = debris('FENGYUN 1C', 29700, 98.6, 14.2);
+SAMPLE['debris-cosmos'] = debris('COSMOS 2251', 33800, 74, 14.4);
+SAMPLE['debris-iridium'] = debris('IRIDIUM 33', 33780, 86.4, 14.5);
+SAMPLE.recent = [makeTle('FALCON 9 R/B', 60001, 53, 40, 0.02, 10, 10, 15.8), makeTle('NEW SAT A', 60002, 97.5, 80, 0.001, 0, 40, 15.2)];
 SAMPLE.active = [...SAMPLE.stations, ...SAMPLE.weather, ...SAMPLE.earth, ...SAMPLE.gps, ...SAMPLE.science, ...SAMPLE.starlink];
 
 export async function spaceGroup(key) {

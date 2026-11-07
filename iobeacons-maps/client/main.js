@@ -74,6 +74,18 @@ export function fail(e) {
 }
 window.addEventListener('unhandledrejection', (ev) => { if (ev.reason instanceof ApiError) { ev.preventDefault(); fail(ev.reason); } });
 
+// ---------- live orbital view (separate bundle, loaded when opened) ----------
+/* global __ORBIT_V__ */
+export async function showOrbit(select) {
+  const v = typeof __ORBIT_V__ !== 'undefined' ? __ORBIT_V__ : String(Date.now());
+  try {
+    const m = await import(`${BASE}/orbit.js?v=${v}`);
+    document.body.classList.add('orbit-open');
+    await m.openOrbit({ get, base: BASE, select, onClose: () => { document.body.classList.remove('orbit-open'); if (location.hash === '#orbit') history.replaceState(null, '', `${BASE}/`); } });
+  } catch (e) { document.body.classList.remove('orbit-open'); toast(`The orbital view did not load: ${e.message}`, 'error'); }
+}
+window.addEventListener('iob-orbit', (e) => showOrbit(e.detail));
+
 // ---------- top bar ----------
 function renderTop() {
   const s = state.session;
@@ -141,7 +153,8 @@ function renderTop() {
   top.append(styleSel,
     h('button', { class: 'seg-btn solo', 'aria-pressed': String(state.mode3d), title: '3D terrain and buildings', onclick: () => { apply3d(!state.mode3d); renderTop(); } }, '3D'),
     h('button', { class: 'seg-btn solo', 'aria-pressed': String(state.globe), title: 'Globe view with satellites', onclick: async () => { const on = !state.globe; setGlobe(on); renderTop(); if (on && !spaceOn()) await setSatellites(true); } }, 'Globe'),
-    h('button', { class: 'seg-btn solo', 'aria-pressed': String(spaceOn()), title: 'Live satellites', onclick: async () => { await setSatellites(!spaceOn()); renderTop(); } }, 'Satellites'));
+    h('button', { class: 'seg-btn solo', 'aria-pressed': String(spaceOn()), title: 'Live satellites on the map', onclick: async () => { await setSatellites(!spaceOn()); renderTop(); } }, 'Satellites'),
+    h('button', { class: 'seg-btn solo orbit-btn', title: 'Live 3D orbits: every satellite and piece of debris at its real height, moving', onclick: () => showOrbit() }, 'Orbits'));
 
   if (state.embed) return;
   if (state.mapRec && !state.shareToken && isEditor()) top.append(h('button', { class: 'btn primary small', onclick: () => openShare() }, 'Share'));
@@ -355,6 +368,7 @@ async function startApp() {
   if (location.hash === '#signin=console') { try { sessionStorage.setItem('iob.next', `${BASE}/console/`); } catch { /* ignore */ } history.replaceState(null, '', `${BASE}/#signin`); }
   if (location.hash === '#signin' || location.hash === '#signup') { const tab = location.hash === '#signup' ? 'signup' : 'login'; history.replaceState(null, '', `${BASE}/`); setTimeout(() => openAuth(tab), 0); }
   // Deep links from the website: #space, #globe, #3d open Maps in that view.
+  if (location.hash === '#orbit' || location.hash === '#orbits') setTimeout(() => showOrbit(), 0);
   const view = ['#space', '#globe', '#3d'].includes(location.hash) ? location.hash.slice(1) : null;
   if (view) {
     history.replaceState(null, '', `${BASE}/`);

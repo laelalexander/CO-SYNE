@@ -10,7 +10,7 @@ import { ah, str, emailOk, rateLimit } from './util.js';
 // Things the public iobeacons.com pages use: the contact form and satellites.
 export const router = express.Router();
 
-router.get('/space', (_req, res) => res.json(SPACE_GROUPS.map(({ key, name, color, optional }) => ({ key, name, color, optional: Boolean(optional) }))));
+router.get('/space', (_req, res) => res.json(SPACE_GROUPS.map(({ key, name, color, optional, debris }) => ({ key, name, color, optional: Boolean(optional), debris: Boolean(debris) }))));
 router.get('/space/:group', ah(async (req, res) => {
   const g = await spaceGroup(req.params.group);
   if (!g) throw new HttpError(404, 'Unknown satellite group.');
