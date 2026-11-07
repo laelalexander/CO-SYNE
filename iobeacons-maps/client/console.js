@@ -163,7 +163,7 @@ async function customer(main, id) {
         h('div', { class: 'c-meta' }, h('label', {}, 'Plan ', planSel),
           h('button', { class: 'btn small primary', onclick: async () => { try { await patch(`/console/customers/${o.id}`, { plan: planSel.value }); toast('Plan changed.'); show(); } catch (e) { fail(e); } } }, 'Save plan')),
         o.plan === 'trial' ? h('p', {}, `Trial ends ${o.trial_ends_at ? fmtDate(o.trial_ends_at) : '—'}. `,
-          h('button', { class: 'btn small', onclick: async () => { try { await patch(`/console/customers/${o.id}`, { extend_trial_days: 14 }); toast('Trial extended by 14 days.'); show(); } catch (e) { fail(e); } } }, 'Extend 14 days')) : null,
+          h('button', { class: 'btn small', onclick: async () => { try { await patch(`/console/customers/${o.id}`, { extend_trial_days: 7 }); toast('Trial extended by 7 days.'); show(); } catch (e) { fail(e); } } }, 'Extend 7 days')) : null,
         h('p', { class: 'muted small' }, o.subscription_status ? `Stripe subscription: ${o.subscription_status}` : 'No Stripe subscription.')),
       card('Members', h('div', { class: 'c-list' }, d.members.map((m) => h('div', { class: 'c-row' },
         h('div', { class: 'grow' }, h('strong', {}, m.name || m.email), h('div', { class: 'muted small' }, m.email)),

@@ -25,7 +25,7 @@ export const PLANS = {
   },
 };
 // A trial gets Professional for config.trialDays.
-PLANS.trial = { ...PLANS.professional, name: 'Professional trial', price: 'Free for 14 days' };
+PLANS.trial = { ...PLANS.professional, name: 'Professional trial', price: 'Free for 7 days' };
 // The open demo: Professional tools, small limits, no team or billing.
 PLANS.demo = {
   name: 'Open demo', price: 'Free',

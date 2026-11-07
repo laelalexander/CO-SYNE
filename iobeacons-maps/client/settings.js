@@ -35,7 +35,7 @@ function authShell(card) {
         h('li', {}, 'Live weather, radar, flood, wildfire and census layers'),
         h('li', {}, 'Track vehicles and devices with zone, speed and offline alerts'),
         h('li', {}, 'One-click site reports with a PDF')),
-      h('p', { class: 'auth-foot' }, 'Part of ', h('a', { href: 'https://iobeacons.com/' }, 'IoBeacons'), '. 14 days free, no card needed.')),
+      h('p', { class: 'auth-foot' }, 'Part of ', h('a', { href: 'https://iobeacons.com/' }, 'IoBeacons'), '. 7 days free, no card needed.')),
     h('div', { class: 'auth-main' },
       canClose ? h('button', { class: 'icon-btn auth-close', 'aria-label': 'Close', onclick: closeAuth }, '✕') : null,
       h('div', { class: 'auth-card' }, card),
@@ -149,7 +149,7 @@ export async function acceptInvite(tokenStr) {
 export function showUpgrade(msg = 'This needs a higher plan.') {
   const s = state.session;
   const body = h('div', { class: 'stack' }, h('p', { class: 'notice' }, msg), plansGrid());
-  if (s?.demo) body.append(h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => openAuth('signup') }, 'Start a 14-day free trial')));
+  if (s?.demo) body.append(h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => openAuth('signup') }, 'Start a 7-day free trial')));
   else if (isOwner()) body.append(h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: () => openSettings('billing') }, 'Change plan')));
   else body.append(h('p', { class: 'small muted' }, 'Ask a workspace owner to change the plan.'));
   modal('Upgrade', body, { wide: true });
@@ -260,7 +260,7 @@ const RENDER = {
           const m = modal('New workspace', h('form', { class: 'stack', onsubmit: async (e) => {
             e.preventDefault();
             try { await post('/orgs', { name: input.value }); m.close(); location.hash = ''; location.reload(); } catch (ex) { err(ex); }
-          } }, field('Name', input), h('p', { class: 'hint' }, 'A new workspace starts its own 14-day trial.'), h('div', { class: 'row end' }, h('button', { class: 'btn primary', type: 'submit' }, 'Create'))));
+          } }, field('Name', input), h('p', { class: 'hint' }, 'A new workspace starts its own 7-day trial.'), h('div', { class: 'row end' }, h('button', { class: 'btn primary', type: 'submit' }, 'Create'))));
         } }, 'New workspace'),
         h('button', { class: 'btn', onclick: changePassword }, 'Change password'),
         h('button', { class: 'btn', onclick: async () => { await post('/logout', {}); location.hash = ''; location.reload(); } }, 'Sign out')));
@@ -400,7 +400,7 @@ const RENDER = {
           h('td', {}, o.is_demo ? 'demo' : h('select', { onchange: async (e) => { try { await patch(`/admin/orgs/${o.id}`, { plan: e.target.value }); toast('Plan changed.'); } catch (ex) { err(ex); } } },
             plans.map((p) => h('option', { value: p, selected: o.plan === p }, p))), h('div', { class: 'hint' }, o.effective !== o.plan ? `in effect: ${o.effective}` : '')),
           h('td', {}, o.members), h('td', {}, o.maps), h('td', {}, fmtNum(o.features)), h('td', {}, fmtNum(o.views)),
-          h('td', {}, o.plan === 'trial' ? h('button', { class: 'btn small', onclick: async () => { try { await patch(`/admin/orgs/${o.id}`, { extend_trial_days: 14 }); toast('Trial extended 14 days.'); } catch (ex) { err(ex); } } }, '+14 days') : null))))));
+          h('td', {}, o.plan === 'trial' ? h('button', { class: 'btn small', onclick: async () => { try { await patch(`/admin/orgs/${o.id}`, { extend_trial_days: 7 }); toast('Trial extended 7 days.'); } catch (ex) { err(ex); } } }, '+7 days') : null))))));
     // Messages from the iobeacons.com contact form.
     const msgs = await get('/admin/contact').catch(() => []);
     pane.append(h('h3', { style: { marginTop: '28px' } }, `Contact form messages (${msgs.length})`),

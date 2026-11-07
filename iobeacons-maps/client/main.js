@@ -353,7 +353,7 @@ function renderBanner() {
   if (s.demo) {
     b.hidden = false;
     clear(b).append(h('span', {}, h('strong', {}, 'Open demo. '), 'Try everything with sample Tulsa data. Changes reset every day and alerts are recorded, not sent.'),
-      h('button', { class: 'btn primary small', onclick: () => openAuth('signup') }, 'Create your workspace: 14 days free'));
+      h('button', { class: 'btn primary small', onclick: () => openAuth('signup') }, 'Create your workspace: 7 days free'));
   } else if (s.org?.plan === 'trial' && s.org.trial_ends_at) {
     const days = Math.ceil((new Date(s.org.trial_ends_at) - Date.now()) / 864e5);
     b.hidden = false;

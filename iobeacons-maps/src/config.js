@@ -43,7 +43,7 @@ export const config = {
     professional: env.STRIPE_PRICE_PROFESSIONAL || '',
     business: env.STRIPE_PRICE_BUSINESS || '',
   },
-  trialDays: num(env.TRIAL_DAYS, 14),
+  trialDays: num(env.TRIAL_DAYS, 7),
   // Fulllobby: website inquiries are sent here so its operators can handle them.
   fulllobbyUrl: env.FULLLOBBY_INQUIRY_URL || '',
   fulllobbyKey: env.FULLLOBBY_API_KEY || '',

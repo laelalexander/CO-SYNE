@@ -76,6 +76,11 @@ for page, current in (('featured-projects', 'projects'), ('maps-roadmap', 'maps'
     print(f'{page}: ' + ', '.join(notes))
 PY
 
+# The free trial is 7 days (was 14). Fix the wording on the pages that are not generated here.
+for d in "$WWW/maps-roadmap" "$ROOT/maps-roadmap" "$WWW/featured-projects" "$ROOT/featured-projects"; do
+  [ -f "$d/index.html" ] && sed -i -e 's/14-day trial/7-day trial/g' -e 's/14-day free trial/7-day free trial/g' -e 's/14 days free/7 days free/g' "$d/index.html"
+done
+
 check() { curl -fsS --max-time 15 "https://$DOMAIN$1" 2>/dev/null | grep -c "data-page=\"$2\"" || true; }
 
 say "Checking pages"

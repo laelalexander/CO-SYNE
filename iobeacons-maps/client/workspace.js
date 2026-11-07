@@ -217,7 +217,7 @@ export async function openWorkspace() {
     wrap.append(h('div', { class: 'ws-head' }, h('div', {}, h('h1', {}, 'Your own workspace'), h('p', { class: 'muted' }, 'Save your maps, pin notes, keep satellites you follow and share findings with peers.')), close),
       h('section', { class: 'ws-card ws-cta' },
         h('ul', {}, h('li', {}, 'Maps, layers, sites and devices saved to your account'), h('li', {}, 'Notes on places, maps and satellites, visible to your team'), h('li', {}, 'Findings you can share with anyone by link'), h('li', {}, 'Invite teammates and manage your plan')),
-        h('button', { class: 'btn primary', onclick: () => { closeWorkspace(); hooks.openAuth?.(s?.user ? 'signup' : 'signup'); } }, 'Start free for 14 days'),
+        h('button', { class: 'btn primary', onclick: () => { closeWorkspace(); hooks.openAuth?.(s?.user ? 'signup' : 'signup'); } }, 'Start free for 7 days'),
         s?.user ? null : h('button', { class: 'btn', onclick: () => { closeWorkspace(); hooks.openAuth?.('login'); } }, 'Sign in')));
     return;
   }

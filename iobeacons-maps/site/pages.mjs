@@ -24,7 +24,7 @@ const ICONS = {
 const icon = (name, tone = 'orange') => `<div class="icon i-${tone}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg></div>`;
 const crumbs = (...items) => `<div class="crumbs"><a href="/">IoBeacons</a>${items.map((i) => ` / ${i}`).join('')}</div>`;
 
-const CTA = (title = 'See it on your own map.', text = 'Open the live demo in your browser. No sign-up needed. When you are ready, start a 14-day free trial or talk to our team about a project.') => `
+const CTA = (title = 'See it on your own map.', text = 'Open the live demo in your browser. No sign-up needed. When you are ready, start a 7-day free trial or talk to our team about a project.') => `
 <section class="tight"><div class="wrap"><div class="cta">
   <div><h2>${title}</h2><p class="lede" style="margin:0">${text}</p></div>
   <div class="btns"><a class="btn btn-primary" href="/maps/">Open the live demo</a><a class="btn btn-ghost" href="/contact/">Talk to us</a></div>
@@ -83,7 +83,7 @@ const home = {
     <h1>See what the world is telling you <span class="hl">before the signal becomes an event.</span></h1>
     <p class="lede">IoBeacons puts your sites, vehicles, sensors, weather, hazards and satellites on one live map. You see what is happening, get told when something changes, and share it with the people who need it. Our team helps you set it up and grow it.</p>
     <div class="btns"><a class="btn btn-primary" href="/maps/">Open the live demo</a><a class="btn btn-ghost" href="/platform/">How it works</a></div>
-    <div class="chips"><span>Works in the browser</span><span>No sign-up for the demo</span><span>14-day free trial</span></div>
+    <div class="chips"><span>Works in the browser</span><span>No sign-up for the demo</span><span>7-day free trial</span></div>
   </div>
   <div class="hero-art">${GLOBE}</div>
 </div></section>
@@ -120,7 +120,7 @@ const home = {
   <p class="lede">You can go at your own pace. Nothing below needs a call, but we are here if you want one.</p></div>
   <div class="steps">
     <div class="step now"><h3>Try the demo</h3><p>Open a working map with sample data. Click around, draw, switch to 3D or Space.</p><a href="/maps/">Open the demo →</a></div>
-    <div class="step"><h3>Start a free trial</h3><p>Create your own workspace with an email and password. 14 days, everything included.</p><a href="/maps/#signup">Create a workspace →</a></div>
+    <div class="step"><h3>Start a free trial</h3><p>Create your own workspace with an email and password. 7 days, everything included.</p><a href="/maps/#signup">Create a workspace →</a></div>
     <div class="step"><h3>Bring your data</h3><p>Upload spreadsheets, KML, GPX, GeoJSON or shapefiles. Add live layers from the catalog.</p><a href="/platform/maps/#data">What you can upload →</a></div>
     <div class="step"><h3>Connect and alert</h3><p>Connect trackers and sensors, draw zones and choose who gets told.</p><a href="/network/">Connect devices →</a></div>
     <div class="step"><h3>Grow with us</h3><p>Invite your team, pick a plan, or have us build a custom map, feed or integration.</p><a href="/contact/">Talk to us →</a></div>
@@ -206,7 +206,7 @@ const platform = {
   <div class="card">
     <div class="eyebrow">Plans</div>
     <h3>Start free, then pick what fits</h3>
-    <p class="muted">Every new workspace gets 14 days of the Professional plan for free. After that there are four plans:</p>
+    <p class="muted">Every new workspace gets 7 days of the Professional plan for free. After that there are four plans:</p>
     <ul class="ticks">
       <li><strong>Starter</strong> for a small team getting going.</li>
       <li><strong>Professional</strong> adds devices, zones, alerts, text messages, embeds and the API.</li>
@@ -230,7 +230,7 @@ const maps = {
     <h1>Your places and things, on a map that keeps up.</h1>
     <p class="lede">IoBeacons Maps is the app at the center of the platform. It runs in any modern browser, on a laptop, tablet or phone.</p>
     <div class="btns"><a class="btn btn-primary" href="/maps/">Open the live demo</a><a class="btn btn-ghost" href="/maps/#signup">Start a free trial</a></div>
-    <div class="chips"><span>No install</span><span>Demo needs no sign-up</span><span>14 days free</span></div>
+    <div class="chips"><span>No install</span><span>Demo needs no sign-up</span><span>7 days free</span></div>
   </div>
   <div class="shot"><img src="/site-assets/maps-app.jpg" alt="The IoBeacons Maps app with layers, sites and devices" width="1400" height="687"></div>
 </div></section>
@@ -439,7 +439,7 @@ const developers = {
 <section class="band"><div class="wrap narrow">
   <h2>Getting started</h2>
   <ol>
-    <li>Create a workspace (the 14-day trial includes the API).</li>
+    <li>Create a workspace (the 7-day trial includes the API).</li>
     <li>In Maps, open <strong>Settings → API keys</strong> and create a key. Copy it now; it is shown once.</li>
     <li>Send it as a bearer token to <code>https://iobeacons.com/maps/api/v1</code>.</li>
   </ol>
