@@ -4,13 +4,27 @@ import { many, q } from '../db/pool.js';
 import { config } from '../config.js';
 import { sendEmail } from '../services/notify.js';
 import { SPACE_GROUPS, spaceGroup, spaceInfo } from '../services/space.js';
+import { usRadarFrames, worldRadarFrames, dopplerFor } from '../services/weather.js';
 import { forwardInquiry } from '../services/fulllobby.js';
-import { ah, str, emailOk, rateLimit } from './util.js';
+import { ah, str, emailOk, rateLimit, lonLat } from './util.js';
 
 // Things the public iobeacons.com pages use: the contact form and satellites.
 export const router = express.Router();
 
 router.get('/space', (_req, res) => res.json(SPACE_GROUPS.map(({ key, name, color, optional, debris }) => ({ key, name, color, optional: Boolean(optional), debris: Boolean(debris) }))));
+// Moving weather: radar loop frames and Doppler winds from the nearest radar.
+router.get('/weather/radar-frames', ah(async (req, res) => {
+  const out = req.query.source === 'world' ? await worldRadarFrames() : usRadarFrames();
+  res.set('Cache-Control', 'public, max-age=120');
+  res.json(out);
+}));
+router.get('/weather/doppler', ah(async (req, res) => {
+  const [lon, lat] = lonLat(req.query.lon, req.query.lat);
+  const d = await dopplerFor(lon, lat);
+  if (!d) throw new HttpError(503, 'Doppler winds need outside data sources, which are switched off on this server.');
+  res.set('Cache-Control', 'public, max-age=120');
+  res.json(d);
+}));
 router.get('/space/info/:norad', ah(async (req, res) => {
   const info = await spaceInfo(req.params.norad);
   if (!info) throw new HttpError(404, 'No catalogue record for that object.');

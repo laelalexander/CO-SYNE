@@ -381,3 +381,12 @@ test('workspace: home, notes, findings shared by link, saved satellites', async 
   assert.equal((await c.del('/watchlist/25544')).status, 200);
   assert.equal((await c.del(`/notes/${noteId}`)).status, 200);
 });
+
+test('weather: radar loop frames', async () => {
+  const r = await client().get('/weather/radar-frames');
+  assert.equal(r.status, 200);
+  assert.equal(r.data.frames.length, 11);
+  assert.match(r.data.frames[0].tiles[0], /nexrad-n0q-900913-m50m/);
+  assert.equal(r.data.frames.at(-1).minutesAgo, 0);
+  assert.equal((await client().get('/weather/doppler?lon=999&lat=0')).status, 400);
+});

@@ -9,6 +9,7 @@ import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, ope
 import { setWorkspaceHooks, notesPanel, openWorkspace, closeWorkspace, hasWorkspace, orbitWorkspace, openSharedFinding } from './workspace.js';
 import { openAuth, openSettings, openShare, showUpgrade, acceptInvite, openReset } from './settings.js';
 import { mountSiteHeader } from '../site/public/site-assets/site-header.js';
+import './radar.js';
 import { spacePanel, selectSat, toggleGroup, setSatellites, spaceOn } from './space.js';
 
 PANELS.space = spacePanel;

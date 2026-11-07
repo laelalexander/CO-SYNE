@@ -535,3 +535,19 @@ label.check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
 .orb-finding h3 { margin: 2px 24px 6px 0; font-size: 16px; color: #fff; }
 .orb-finding p { margin: 0 0 6px; font-size: 13px; color: #c3d1e3; white-space: pre-wrap; }
 .orb-toast { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); background: #3b1111; color: #ffd6d6; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+
+/* ---------- radar loop ---------- */
+.radar-bar { position: absolute; left: 50%; bottom: 38px; transform: translateX(-50%); z-index: 7; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; max-width: min(760px, calc(100% - 24px)); padding: 8px 12px; background: color-mix(in srgb, var(--panel) 95%, transparent); backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); font-size: 13px; }
+.rb-play { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; font-size: 13px; cursor: pointer; flex: none; }
+.rb-mid { display: flex; flex-direction: column; gap: 5px; min-width: 220px; flex: 1; }
+.rb-when { color: var(--ink-2); white-space: nowrap; }
+.rb-when b { color: var(--ink); }
+.rb-src { margin-left: 8px; color: var(--faint); font-size: 12px; }
+.rb-ticks { display: flex; gap: 3px; }
+.rb-tick { flex: 1; height: 8px; min-width: 8px; border: 0; border-radius: 3px; background: var(--line-2); cursor: pointer; padding: 0; }
+.rb-tick.latest { background: #9db8e6; }
+.rb-tick.on { background: var(--beacon); }
+.rb-dop { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink); white-space: nowrap; cursor: pointer; }
+.rb-legend { flex-basis: 100%; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.rb-grad { width: 120px; height: 8px; border-radius: 4px; flex: none; background: linear-gradient(90deg, #00e000, #006400, #7f7f7f, #8b0000, #ff3030); }
+@media (max-width: 900px) { .radar-bar { bottom: 30px; } .rb-src { display: none; } }

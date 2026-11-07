@@ -124,8 +124,8 @@ export async function renderAll() {
 export async function renderLayer(layer) {
   const prefix = `L-${layer.id}`;
   removeLayerGroup(prefix);
-  if (!layer.visible) return;
-  if (layer.kind === 'catalog') return renderCatalog(layer, prefix);
+  if (!layer.visible) { emit('layer-rendered', layer); return; }
+  if (layer.kind === 'catalog') { await renderCatalog(layer, prefix); emit('layer-rendered', layer); return; }
   const s = { color: '#1f5fbf', opacity: 0.35, width: 2, radius: 6, mode: 'simple', ...layer.style };
   const big = layer.feature_count > 20000;
   let fc = null;
