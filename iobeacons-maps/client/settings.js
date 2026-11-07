@@ -65,7 +65,7 @@ export function openAuth(tab = 'login', msg = '', { inviteToken, email: presetEm
         if (inviteToken) { await post(`/invitations/${inviteToken}/accept`, {}); }
         let next = null; try { next = sessionStorage.getItem('iob.next'); sessionStorage.removeItem('iob.next'); } catch { /* ignore */ }
         if (next && next.startsWith(`${BASE}/console`)) { location.href = next; return; }
-        history.replaceState(null, '', `${BASE}/`); location.reload();
+        history.replaceState(null, '', `${BASE}/#workspace`); location.reload();
       } catch (ex) {
         status.textContent = ex.status === 429 ? 'Too many tries. Wait a few minutes and try again.' : ex.message;
         submit.disabled = false; submit.classList.remove('busy');

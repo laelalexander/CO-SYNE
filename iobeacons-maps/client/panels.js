@@ -344,7 +344,7 @@ function mapsPanel(side) {
   }
   side.append(list);
 }
-async function newMap() {
+export async function newMap() {
   const name = await askName('New map', 'Untitled map');
   if (!name) return;
   try {

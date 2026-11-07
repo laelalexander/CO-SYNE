@@ -99,7 +99,7 @@ export function closeOrbit() { current?.close(); }
 
 // opts: { get(path) -> Promise<json>, base, onClose(), select: 'ISS' }
 export async function openOrbit(opts = {}) {
-  if (current) return current;
+  if (current) { current.focus?.(opts); return current; }
   const root = el('div', { class: 'orb', role: 'region', 'aria-label': 'Live orbital view' });
   document.body.append(root);
   const loading = el('div', { class: 'orb-loading' }, el('div', { class: 'orb-spin' }), el('p', {}, 'Loading the satellite catalogue…'));
@@ -364,6 +364,27 @@ export async function openOrbit(opts = {}) {
   });
   search.addEventListener('keydown', (e) => { if (e.key === 'Enter') hits.querySelector('.orb-hit')?.click(); if (e.key === 'Escape') { hits.hidden = true; search.blur(); } });
 
+  const sec = (title, ...kids) => el('section', { class: 'orb-sec' }, el('h4', {}, title), ...kids);
+  // ---------- workspace: save, notes, findings ----------
+  const ws = opts.workspace || null;
+  function wsActions(s) {
+    if (!ws) return null;
+    if (!ws.enabled) return sec('Your workspace', el('p', { class: 'orb-note' }, 'Save satellites you follow, add notes and share findings with peers.'), el('div', { class: 'orb-actions' }, el('button', { class: 'orb-btn', onclick: () => { close(); ws.signUp(); } }, 'Create a free account')));
+    const saveBtn = el('button', { class: 'orb-btn' }, '☆ Save');
+    const setSaved = (on) => { saveBtn.textContent = on ? '★ Saved' : '☆ Save'; saveBtn.classList.toggle('on', on); saveBtn.dataset.on = on ? '1' : ''; };
+    ws.isSaved(s.id).then(setSaved);
+    saveBtn.addEventListener('click', async () => { try { if (saveBtn.dataset.on) { await ws.unsave(s); setSaved(false); } else { await ws.save(s); setSaved(true); } } catch (e) { alertMsg(e); } });
+    const list = el('div', { class: 'orb-notes' });
+    const loadNotes = () => ws.notes(s.id).then((ns) => list.replaceChildren(...ns.map((n) => el('div', { class: 'orb-n' }, el('p', {}, n.body), el('span', {}, `${n.author_name || 'Someone'} · ${new Date(n.created_at).toLocaleDateString()}`)))));
+    loadNotes();
+    return sec('Your workspace',
+      el('div', { class: 'orb-actions' }, saveBtn,
+        ws.canWrite ? el('button', { class: 'orb-btn', onclick: () => ws.addNote(s, loadNotes) }, 'Add note') : null,
+        ws.canWrite ? el('button', { class: 'orb-btn', onclick: () => ws.saveFinding(s, { time: new Date(simNow()).toISOString(), camera: view.follow ? (view.want < 12 ? 'close' : 'follow') : 'earth', rate: sim.rate }) }, 'Save finding') : null),
+      list);
+  }
+  const alertMsg = (e) => { const t = el('div', { class: 'orb-toast' }, e.message || String(e)); root.append(t); setTimeout(() => t.remove(), 5000); };
+
   // ---------- selection ----------
   let pathAt = 0, model = null, modelToken = 0;
   function select(i) {
@@ -394,7 +415,6 @@ export async function openOrbit(opts = {}) {
     const orbitKind = hi > 34000 && lo > 34000 ? 'Geostationary (stays over one spot)' : e > 0.25 ? 'Highly elliptical' : hi > 2000 ? 'Medium Earth orbit' : 'Low Earth orbit';
     const about = aboutText(s.name);
     const catalogue = el('tbody', {}, row('Catalogue', 'Loading…'));
-    const sec = (title, ...kids) => el('section', { class: 'orb-sec' }, el('h4', {}, title), ...kids);
     panel.replaceChildren(...[
       el('button', { class: 'orb-x', 'aria-label': 'Close', onclick: () => select(-1) }, '✕'),
       el('div', { class: 'orb-eyebrow' }, el('span', { class: 'k', style: { background: c.css } }), c.label, ' · ', s.group),
@@ -413,6 +433,7 @@ export async function openOrbit(opts = {}) {
         row('Highest / lowest', `${fmt(hi)} / ${fmt(lo)} km`),
         row('Inclination', `${fmt(s.rec.inclo * 180 / Math.PI, 1)}°`))),
         el('p', { class: 'orb-note' }, 'Blue line: where it goes in the next orbit. Orange: the path over the ground below it.')),
+      wsActions(s),
       sec('Catalogue record', el('table', {}, catalogue)),
       sec('The 3D model', noteEl),
       el('p', { class: 'orb-note' }, `NORAD ${s.id} · orbital elements from ${epochText(s.rec)} · `,
@@ -557,11 +578,33 @@ export async function openOrbit(opts = {}) {
 
   st.started = true;
   primeProp();
-  if (opts.select) {
-    const q = String(opts.select).toUpperCase();
-    const i = sats.findIndex((s) => s.id === q || s.name.startsWith(q));
-    if (i >= 0) select(i);
+  // Open on a given object, time and camera (from the workspace or a shared finding).
+  function focus(o = {}) {
+    if (o.time && Number.isFinite(Date.parse(o.time))) { simNow(); sim.t = Date.parse(o.time); }
+    if (o.rate && RATES.includes(Number(o.rate))) { sim.rate = Number(o.rate); rateSel.value = String(sim.rate); }
+    if (o.time || o.rate) primeProp();
+    if (o.select) {
+      const q = String(o.select).toUpperCase();
+      const i = sats.findIndex((x) => x.id === q || x.name.startsWith(q));
+      if (i >= 0) {
+        if (!groups[sats[i].cls].points.visible) { groups[sats[i].cls].points.visible = true; renderLegend(); }
+        select(i);
+        if (o.camera === 'close') setFollow(true, true); else if (o.camera !== 'earth') setFollow(true);
+      }
+    }
+    findingCard?.remove(); findingCard = null;
+    if (o.finding) {
+      const f = o.finding;
+      findingCard = el('aside', { class: 'orb-finding' },
+        el('button', { class: 'orb-x', 'aria-label': 'Close', onclick: () => { findingCard.remove(); findingCard = null; } }, '✕'),
+        el('div', { class: 'orb-eyebrow' }, 'Shared finding'), el('h3', {}, f.title), f.note ? el('p', {}, f.note) : null,
+        el('p', { class: 'orb-note' }, [f.author_name, f.org_name].filter(Boolean).join(' · ')));
+      root.append(findingCard);
+    }
   }
+  let findingCard = null;
+  current.focus = focus;
+  focus(opts);
 
   // ---------- frame loop ----------
   let frames = 0, fps = 0, fpsAt = performance.now(), hudAt = 0;

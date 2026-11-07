@@ -8,6 +8,7 @@ import { router as mapsRouter } from './routes/maps.js';
 import { router as opsRouter } from './routes/ops.js';
 import { router as siteRouter } from './routes/site.js';
 import { router as consoleRouter } from './routes/console.js';
+import { router as workspaceRouter } from './routes/workspace.js';
 
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
 
@@ -38,7 +39,7 @@ export function buildApp() {
     next();
   };
   base.use('/api/v1', v1Guard, mapsRouter, opsRouter);
-  base.use('/api', siteRouter, consoleRouter, accountRouter, mapsRouter, opsRouter);
+  base.use('/api', siteRouter, consoleRouter, workspaceRouter, accountRouter, mapsRouter, opsRouter);
   base.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found.')));
 
   base.use(express.static(publicDir, {

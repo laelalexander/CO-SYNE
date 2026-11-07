@@ -5,12 +5,14 @@ import {
   initMap, map, setBasemap, renderAll, renderLayer, renderSystem, updateSystemData, apply3d, setGlobe, fitTo, boundsOf, dropCache,
 } from './mapview.js';
 import { startDraw, stopDraw, saveEdit, stopEdit, describeGeometry } from './draw.js';
-import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, openSiteInspector } from './panels.js';
+import { PANELS, showInspector, hideInspector, openLayerEditor, runReportAt, openSiteInspector, newMap } from './panels.js';
+import { setWorkspaceHooks, notesPanel, openWorkspace, closeWorkspace, hasWorkspace, orbitWorkspace, openSharedFinding } from './workspace.js';
 import { openAuth, openSettings, openShare, showUpgrade, acceptInvite, openReset } from './settings.js';
 import { mountSiteHeader } from '../site/public/site-assets/site-header.js';
 import { spacePanel, selectSat, toggleGroup, setSatellites, spaceOn } from './space.js';
 
 PANELS.space = spacePanel;
+PANELS.notes = notesPanel;
 
 // ---------- boot ----------
 export async function loadSession() {
@@ -76,15 +78,17 @@ window.addEventListener('unhandledrejection', (ev) => { if (ev.reason instanceof
 
 // ---------- live orbital view (separate bundle, loaded when opened) ----------
 /* global __ORBIT_V__ */
-export async function showOrbit(select) {
+export async function showOrbit(o) {
   const v = typeof __ORBIT_V__ !== 'undefined' ? __ORBIT_V__ : String(Date.now());
+  const opts = typeof o === 'string' ? { select: o } : (o || {});
   try {
     const m = await import(`${BASE}/orbit.js?v=${v}`);
     document.body.classList.add('orbit-open');
-    await m.openOrbit({ get, base: BASE, select, onClose: () => { document.body.classList.remove('orbit-open'); if (location.hash === '#orbit') history.replaceState(null, '', `${BASE}/`); } });
+    await m.openOrbit({ ...opts, get, base: BASE, workspace: state.session ? orbitWorkspace() : null, onClose: () => { document.body.classList.remove('orbit-open'); if (location.hash === '#orbit') history.replaceState(null, '', `${BASE}/`); } });
   } catch (e) { document.body.classList.remove('orbit-open'); toast(`The orbital view did not load: ${e.message}`, 'error'); }
 }
 window.addEventListener('iob-orbit', (e) => showOrbit(e.detail));
+setWorkspaceHooks({ openMap: (id) => openMap(id), showOrbit, showPanel: (k) => showPanel(k), openSettings, openAuth, setSatellites, spaceOn, newMap: () => newMap() });
 
 // ---------- top bar ----------
 function renderTop() {
@@ -100,7 +104,7 @@ function renderTop() {
     if (siteHeader) {
       mountSiteHeader(sh, {
         current: 'maps', flush: true, inApp: true,
-        account: s.user ? { label: s.user.name?.split(' ')[0] || 'Account', onClick: () => openSettings() } : null,
+        account: s.user ? { label: s.user.name?.split(' ')[0] || 'Account', onClick: () => (hasWorkspace() ? openWorkspace() : openSettings()) } : null,
         onSignIn: () => openAuth('login'),
       });
       document.documentElement.style.setProperty('--site-h', `${sh.offsetHeight || 47}px`);
@@ -159,6 +163,7 @@ function renderTop() {
   if (state.embed) return;
   if (state.mapRec && !state.shareToken && isEditor()) top.append(h('button', { class: 'btn primary small', onclick: () => openShare() }, 'Share'));
   if (s.user) {
+    if (hasWorkspace()) top.append(h('button', { class: 'btn primary small keep', onclick: () => openWorkspace() }, 'Workspace'));
     top.append(h('button', { class: 'btn small keep', onclick: () => openSettings() }, s.role === 'owner' && !s.demo ? 'Settings' : 'Account'));
   } else if (siteHeader) {
     top.append(h('button', { class: 'btn primary small trial', onclick: () => openAuth('signup') }, 'Start free trial'));
@@ -206,6 +211,7 @@ const RAIL = [
   ['devices', 'Devices', 'M12 2v4 M12 18v4 M2 12h4 M18 12h4 M12 16a4 4 0 100-8 4 4 0 000 8z'],
   ['alerts', 'Alerts', 'M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8 M10 20a2 2 0 004 0'],
   ['reports', 'Reports', 'M6 2h9l5 5v15H6z M14 2v6h6 M9 13h8 M9 17h6'],
+  ['notes', 'Notes', 'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h5'],
   ['space', 'Space', 'M12 12m-3 0a3 3 0 106 0 3 3 0 10-6 0 M3 16c3-2 15-10 18-8 M4.5 9.5C3 12 6 17 12 18'],
 ];
 let currentPanel = null;
@@ -379,7 +385,10 @@ async function startApp() {
       if (view === 'space') { showPanel('space'); setSatellites(true).then(() => { showPanel('space'); map.easeTo({ zoom: 1.6, pitch: 0, duration: 1400 }); renderTop(); }); }
     });
   }
-  if (hash.get('share')) return startShared(hash.get('share'));
+  const findingTok = hash.get('finding');
+  const wantWorkspace = location.hash === '#workspace';
+  if (hash.get('share')) { await startShared(hash.get('share')); if (findingTok) openSharedFinding(findingTok); return; }
+  if (findingTok && !state.session.org) { renderTop(); await openSharedFinding(findingTok); return; }
   if (!state.session.org) { renderTop(); renderBanner(); openAuth('login'); return; }
   renderBanner();
   await loadWorkspaceData();
@@ -395,6 +404,8 @@ async function startApp() {
   await openMap(id);
   if (view !== 'space') showPanel(window.innerWidth >= 900 ? 'layers' : null);
   if (hash.get('settings')) openSettings(hash.get('settings'));
+  if (findingTok) { history.replaceState(null, '', `#map=${state.mapRec.id}`); openSharedFinding(findingTok); }
+  else if (wantWorkspace) openWorkspace();
 }
 
 async function startShared(token, { embed = false } = {}) {
@@ -435,6 +446,8 @@ async function boot() {
 window.addEventListener('hashchange', () => {
   const p = new URLSearchParams(location.hash.slice(1));
   if (p.get('settings')) openSettings(p.get('settings'));
+  else if (location.hash === '#workspace') openWorkspace();
+  else if (p.get('finding')) openSharedFinding(p.get('finding'));
   else if (p.get('map') && p.get('map') !== state.mapRec?.id && !state.shareToken) openMap(p.get('map')).catch(fail);
 });
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.drawing) { stopDraw(); stopEdit(); } });

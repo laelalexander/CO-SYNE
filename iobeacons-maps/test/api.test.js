@@ -340,3 +340,44 @@ test('admin console: staff only, inquiries flow and Fulllobby forwarding', async
     assert.equal((await outsider.get('/session')).data.user, null, 'outsider signed out');
   } finally { config.fulllobbyUrl = ''; fl.close(); }
 });
+
+test('workspace: home, notes, findings shared by link, saved satellites', async () => {
+  assert.equal((await client().get('/workspace')).status, 401, 'needs sign in');
+  const { c } = await signup('Wendy');
+  const { c: other } = await signup('Otherorg');
+  const maps = (await c.get('/maps')).data;
+  const mapId = maps[0].id;
+
+  let r = await c.post('/notes', { body: 'Flooding seen here after the storm.', target: { kind: 'place', lng: -95.9, lat: 36.1 }, map_id: mapId });
+  assert.equal(r.status, 201);
+  const noteId = r.data.id;
+  assert.equal((await c.post('/notes', { body: 'Bright pass tonight.', target: { kind: 'satellite', norad: '25544', name: 'ISS' } })).status, 201);
+  assert.equal((await c.post('/notes', { body: 'x', target: { kind: 'place', lng: 999, lat: 0 } })).status, 400);
+  assert.equal((await c.get(`/notes?map_id=${mapId}`)).data.length, 1);
+  assert.equal((await c.get('/notes?norad=25544')).data.length, 1);
+  assert.equal((await other.get('/notes')).data.length, 0, 'notes stay in their workspace');
+  assert.equal((await other.del(`/notes/${noteId}`)).status, 404);
+
+  r = await c.post('/findings', { kind: 'map', title: 'Flood edge', note: 'Water reached the road.', view: { mapId, center: [-95.9, 36.1], zoom: 13 }, share: true });
+  assert.equal(r.status, 201);
+  assert.match(r.data.link, /#finding=/);
+  const tok = r.data.link.split('#finding=')[1];
+  const pub = await client().get(`/findings/shared/${tok}`);
+  assert.equal(pub.status, 200);
+  assert.equal(pub.data.title, 'Flood edge');
+  assert.equal(pub.data.member, false);
+  assert.equal(pub.data.org_id, undefined, 'no internal ids leak');
+  assert.equal((await c.patch(`/findings/${r.data.id}`, { share: false })).data.link, null);
+  assert.equal((await client().get(`/findings/shared/${tok}`)).status, 404, 'stopped sharing');
+  assert.equal((await c.post('/findings', { kind: 'orbit', title: 'ISS over Tulsa', view: { norad: '25544', time: new Date().toISOString(), camera: 'close' } })).status, 201);
+
+  assert.equal((await c.post('/watchlist', { norad: '25544', name: 'ISS (ZARYA)' })).status, 201);
+  assert.equal((await c.post('/watchlist', { norad: '25544', name: 'ISS (ZARYA)' })).status, 201, 'saving twice is fine');
+  const home = (await c.get('/workspace')).data;
+  assert.equal(home.notes.length, 2);
+  assert.equal(home.findings.length, 2);
+  assert.equal(home.watchlist.length, 1);
+  assert.ok(home.maps.length >= 1 && home.team.length === 1);
+  assert.equal((await c.del('/watchlist/25544')).status, 200);
+  assert.equal((await c.del(`/notes/${noteId}`)).status, 200);
+});

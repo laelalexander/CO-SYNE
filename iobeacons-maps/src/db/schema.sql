@@ -250,3 +250,40 @@ alter table contact_messages add column if not exists forwarded_at timestamptz;
 alter table contact_messages add column if not exists forward_status text;
 alter table contact_messages add column if not exists updated_at timestamptz not null default now();
 create index if not exists contact_messages_status on contact_messages(status, created_at desc);
+
+-- Workspace: notes, findings and saved satellites.
+create table if not exists notes (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs(id) on delete cascade,
+  author_id uuid references users(id) on delete set null,
+  map_id uuid references maps(id) on delete cascade,
+  body text not null,
+  target jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists notes_org on notes(org_id, created_at desc);
+create index if not exists notes_map on notes(map_id);
+
+create table if not exists findings (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs(id) on delete cascade,
+  author_id uuid references users(id) on delete set null,
+  title text not null,
+  note text not null default '',
+  kind text not null check (kind in ('map','orbit')),
+  view jsonb not null default '{}',
+  share_token text unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists findings_org on findings(org_id, created_at desc);
+
+create table if not exists watchlist (
+  org_id uuid not null references orgs(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  norad text not null,
+  name text not null,
+  created_at timestamptz not null default now(),
+  primary key (org_id, user_id, norad)
+);
