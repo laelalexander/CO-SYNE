@@ -62,9 +62,9 @@ export async function context(req, _res, next) {
       const key = await one(`select k.*, row_to_json(o) as org from api_keys k join orgs o on o.id=k.org_id
                              where k.key_hash=$1 and k.revoked_at is null`, [sha256(auth.slice(7))]);
       if (!key) return next(new HttpError(401, 'That API key is not valid or was revoked.'));
-      ctx.org = key.org; ctx.role = 'editor'; ctx.via = 'api'; ctx.apiKeyId = key.id;
+      ctx.org = key.org; ctx.role = 'editor'; ctx.via = 'api'; ctx.apiKeyId = key.id; ctx.apiKeyName = key.name;
       q('update api_keys set last_used_at=now() where id=$1', [key.id]).catch(() => {});
-      bump(ctx.org.id, 'apiCalls').catch(() => {});
+      ctx.apiCalls = await bump(ctx.org.id, 'apiCalls').catch(() => 0);
     } else if (req.cookies?.[COOKIE]) {
       const s = await one(`select s.*, row_to_json(u) as user from sessions s join users u on u.id=s.user_id
                            where s.id=$1 and s.expires_at > now()`, [sha256(req.cookies[COOKIE])]);

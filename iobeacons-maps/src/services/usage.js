@@ -4,9 +4,10 @@ export const period = (d = new Date()) => d.toISOString().slice(0, 7);
 
 export async function bump(orgId, metric, by = 1) {
   if (!orgId) return;
-  await q(`insert into usage(org_id, period, metric, count) values ($1,$2,$3,$4)
-           on conflict (org_id, period, metric) do update set count = usage.count + excluded.count`,
+  const r = await q(`insert into usage(org_id, period, metric, count) values ($1,$2,$3,$4)
+           on conflict (org_id, period, metric) do update set count = usage.count + excluded.count returning count`,
   [orgId, period(), metric, by]);
+  return Number(r.rows[0]?.count || 0);
 }
 
 export async function usageFor(orgId) {

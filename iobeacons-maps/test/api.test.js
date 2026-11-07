@@ -216,6 +216,53 @@ test('API keys reach /api/v1 and create devices on first position', async () => 
   assert.equal((await api.get('/v1/maps')).status, 401);
 });
 
+test('API library: spec, /me, CORS, quota headers, space, weather and notes over /api/v1', async () => {
+  const anon = client();
+  const spec = await anon.get('/v1/openapi.json');
+  assert.equal(spec.status, 200);
+  assert.equal(spec.data.openapi, '3.1.0');
+  assert.ok(spec.data.paths['/devices/{ref}/positions'].post);
+  assert.ok(spec.data.paths['/space/objects/{norad}/position'].get);
+  const ids = Object.values(spec.data.paths).flatMap((p) => Object.values(p).map((o) => o.operationId));
+  assert.equal(new Set(ids).size, ids.length, 'operationIds are unique');
+  const pre = await fetch(`${base}/v1/maps`, { method: 'OPTIONS', headers: { origin: 'https://example.com' } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), '*');
+
+  const { c } = await signup('Lib');
+  const k = await c.post('/org/keys', { name: 'sdk' });
+  const api = client({ authorization: `Bearer ${k.data.secret}` });
+  const me = await api.get('/v1/me');
+  assert.equal(me.status, 200, JSON.stringify(me.data));
+  assert.equal(me.data.key.name, 'sdk');
+  assert.equal(me.data.quota.limit, 100000);
+  assert.ok(Number(me.headers.get('x-quota-remaining')) < 100000);
+
+  const pos = await api.get('/v1/space/objects/25544/position');
+  assert.equal(pos.status, 200, JSON.stringify(pos.data));
+  assert.equal(pos.data.name, 'ISS (ZARYA)');
+  assert.ok(pos.data.altKm > 300 && pos.data.altKm < 500);
+  const track = await api.get('/v1/space/objects/25544/track?minutes=30&step=60');
+  assert.equal(track.data.geometry.type, 'MultiLineString');
+  const group = await api.get('/v1/space/stations/positions');
+  assert.equal(group.data.features.length, 2);
+  assert.equal((await api.get('/v1/space/objects/1/position')).status, 404);
+  assert.equal((await api.get('/v1/space/objects/25544/position?time=nonsense')).status, 400);
+  assert.equal((await api.get('/v1/weather/radar-frames')).data.frames.length, 11);
+
+  const n = await api.post('/v1/notes', { body: 'From a script', target: { kind: 'place', lng: -95.9, lat: 36.1 } });
+  assert.equal(n.status, 201, JSON.stringify(n.data));
+  assert.equal(n.data.author_name, 'API key');
+  assert.equal((await api.patch(`/v1/notes/${n.data.id}`, { body: 'Changed' })).status, 200);
+  const f = await api.post('/v1/findings', { title: 'Scripted view', kind: 'map', view: { center: [-95.9, 36.1], zoom: 8 }, share: true });
+  assert.equal(f.status, 201);
+  assert.ok(f.data.link.includes('#finding='));
+  assert.equal((await api.get('/v1/watchlist')).status, 401);
+  assert.equal((await api.get('/v1/nothing-here')).status, 404);
+  // the team sees what the key wrote
+  assert.ok((await c.get('/notes')).data.some((x) => x.body === 'Changed' && x.author_name === 'API key'));
+});
+
 test('plans: expired trials are read-only, Starter lacks geofences, staff can change plans', async () => {
   const { c } = await signup('Expiring');
   const orgId = (await c.get('/session')).data.org.id;

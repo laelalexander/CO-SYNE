@@ -9,6 +9,9 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const r = (...p) => path.join(root, ...p);
 
+// 0. Client libraries for the API (sdk/js, sdk/python), from src/openapi.js.
+await import('./build-sdk.mjs');
+
 // 1. MapLibre (ESM build plus its worker), served as-is.
 const mlDist = r('node_modules/maplibre-gl/dist');
 const vendor = r('public/vendor/maplibre');

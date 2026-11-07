@@ -1,0 +1,13 @@
+{
+  "name": "iobeacons",
+  "version": "1.0.0",
+  "description": "Client for the IoBeacons API: maps, live data, devices, alerts, satellites and weather.",
+  "type": "module",
+  "main": "iobeacons.mjs",
+  "types": "iobeacons.d.ts",
+  "exports": { ".": { "types": "./iobeacons.d.ts", "default": "./iobeacons.mjs" } },
+  "files": ["iobeacons.mjs", "iobeacons.d.ts", "README.md"],
+  "engines": { "node": ">=18" },
+  "homepage": "https://iobeacons.com/developers/api/",
+  "license": "MIT"
+}

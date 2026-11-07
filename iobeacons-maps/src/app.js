@@ -6,7 +6,8 @@ import { context, HttpError } from './auth.js';
 import { router as accountRouter, stripeWebhook } from './routes/account.js';
 import { router as mapsRouter } from './routes/maps.js';
 import { router as opsRouter } from './routes/ops.js';
-import { router as siteRouter } from './routes/site.js';
+import { router as siteRouter, dataRouter } from './routes/site.js';
+import * as v1 from './routes/v1.js';
 import { router as consoleRouter } from './routes/console.js';
 import { router as workspaceRouter } from './routes/workspace.js';
 
@@ -30,15 +31,12 @@ export function buildApp() {
 
   base.use(cookieParser());
   base.use(express.json({ limit: '12mb' }));
+  base.use('/api/v1', v1.cors);
   base.use('/api', context);
 
   // Same routes for the app (/api) and for API key customers (/api/v1).
-  const v1Guard = (req, _res, next) => {
-    if (req.ctx.via !== 'api') return next(new HttpError(401, 'Use an API key: Authorization: Bearer iobm_...'));
-    if (!req.ctx.plan.features.api) return next(new HttpError(402, 'The API comes with the Professional plan.'));
-    next();
-  };
-  base.use('/api/v1', v1Guard, mapsRouter, opsRouter);
+  base.use('/api/v1', v1.open, v1.guard, v1.router, mapsRouter, opsRouter, dataRouter, workspaceRouter);
+  base.use('/api/v1', (_req, _res, next) => next(new HttpError(404, 'No such endpoint. See https://iobeacons.com/developers/api/')));
   base.use('/api', siteRouter, consoleRouter, workspaceRouter, accountRouter, mapsRouter, opsRouter);
   base.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found.')));
 

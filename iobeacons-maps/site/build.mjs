@@ -57,6 +57,15 @@ for (const p of PAGES) {
   await writeFile(path.join(dist, file), layout(p));
 }
 
+// The API client libraries and description, for download from the Developers pages.
+{
+  const { openapi } = await import('../src/openapi.js');
+  const sdkDir = path.join(dist, 'developers', 'sdk');
+  await mkdir(sdkDir, { recursive: true });
+  for (const f of ['js/iobeacons.mjs', 'js/iobeacons.d.ts', 'js/README.md', 'python/iobeacons.py']) await cp(path.join(here, '..', 'sdk', f), path.join(sdkDir, f === 'js/README.md' ? 'README-js.md' : path.basename(f)));
+  await writeFile(path.join(dist, 'developers', 'openapi.json'), JSON.stringify(openapi(`${SITE.origin}/maps/api/v1`), null, 2));
+}
+
 // Old addresses that now live elsewhere.
 const REDIRECTS = { 'satellite/': '/maps/#orbit', 'observe/': '/maps/#orbit', 'download/': '/network/#tracker', 'admin-signin/': '/maps/#signin' };
 for (const [from, to] of Object.entries(REDIRECTS)) {

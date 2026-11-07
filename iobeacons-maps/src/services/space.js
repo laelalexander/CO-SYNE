@@ -1,3 +1,4 @@
+import * as sgp4 from 'satellite.js';
 import { fetchCached } from './fetcher.js';
 import { config } from '../config.js';
 
@@ -122,3 +123,52 @@ export async function spaceInfo(norad) {
     source: 'CelesTrak SATCAT',
   };
 }
+
+// ---- positions computed on the server (for the API) ----
+
+// Orbital elements for one object, by catalogue number.
+export async function spaceTle(norad) {
+  const n = String(norad).replace(/\D/g, '');
+  if (!n) return null;
+  const fromSample = () => Object.values(SAMPLE).flat().find((s) => Number(s.l1.slice(2, 7)) === Number(n)) || null;
+  if (config.offline) return fromSample();
+  try {
+    const r = await fetchCached(`tle:${n}`, `https://celestrak.org/NORAD/elements/gp.php?CATNR=${n}&FORMAT=tle`, { ttlSec: 4 * 3600, timeoutMs: 12000 });
+    if (r.status < 400) { const t = parseTle(r.body.toString('utf8'))[0]; if (t) return t; }
+  } catch { /* fall back below */ }
+  return fromSample();
+}
+
+
+// Where an object is at a moment: longitude, latitude, height and speed.
+export function positionAt(tle, when = new Date()) {
+  const rec = sgp4.twoline2satrec(tle.l1, tle.l2);
+  const pv = sgp4.propagate(rec, when);
+  if (!pv || !pv.position || typeof pv.position === 'boolean' || rec.error) return null;
+  const gd = sgp4.eciToGeodetic(pv.position, sgp4.gstime(when));
+  const v = pv.velocity;
+  return {
+    lon: Math.round(sgp4.degreesLong(gd.longitude) * 1e5) / 1e5,
+    lat: Math.round(sgp4.degreesLat(gd.latitude) * 1e5) / 1e5,
+    altKm: Math.round(gd.height * 10) / 10,
+    speedKmS: Math.round(Math.hypot(v.x, v.y, v.z) * 1000) / 1000,
+  };
+}
+export const periodMin = (tle) => 1440 / Number(tle.l2.slice(52, 63));
+export const noradOf = (tle) => Number(tle.l1.slice(2, 7));
+
+// The ground track as GeoJSON, split where it crosses the date line.
+export function groundTrack(tle, from, minutes, stepSec) {
+  const lines = [[]];
+  let prev = null;
+  for (let s = 0; s <= minutes * 60; s += stepSec) {
+    const p = positionAt(tle, new Date(from.getTime() + s * 1000));
+    if (!p) continue;
+    if (prev && Math.abs(p.lon - prev.lon) > 180) lines.push([]);
+    lines.at(-1).push([p.lon, p.lat]);
+    prev = p;
+  }
+  const parts = lines.filter((l) => l.length > 1);
+  return { type: 'MultiLineString', coordinates: parts };
+}
+

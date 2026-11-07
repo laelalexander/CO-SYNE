@@ -1,4 +1,5 @@
 // Content for every iobeacons.com page. Layout lives in build.mjs.
+import { apiReferencePage } from './api-ref.mjs';
 export const SITE = { origin: 'https://iobeacons.com' };
 
 const ICONS = {
@@ -138,7 +139,7 @@ const home = {
 </div></section>
 
 <section class="band"><div class="wrap grid g3">
-  <div><div class="eyebrow">For builders</div><h3>An API for everything</h3><p class="muted">Send device positions, read and write features, export layers and pull vector tiles with an API key.</p><a class="btn-link" href="/developers/">Developer docs</a></div>
+  <div><div class="eyebrow">For builders</div><h3>An API for everything</h3><p class="muted">Maps, devices, alerts, reports, satellites and weather from code, with JavaScript and Python libraries.</p><a class="btn-link" href="/developers/">Developer docs</a></div>
   <div><div class="eyebrow">For researchers</div><h3>Data with its source attached</h3><p class="muted">Every layer says where it came from and how fresh it is, so you can cite it and trust it.</p><a class="btn-link" href="/research/">Research</a></div>
   <div><div class="eyebrow">For everyone</div><h3>Private by default</h3><p class="muted">Your workspace is yours. Share links are opt-in, and you can turn them off at any time.</p><a class="btn-link" href="/data-governance/">How we handle data</a></div>
 </div></section>
@@ -427,13 +428,13 @@ ${CTA('Have a research question?', 'Tell us what you are studying and we will te
 const developers = {
   key: 'developers', path: '/developers/', current: 'developers',
   title: 'Developers',
-  description: 'The IoBeacons API: send device positions, read and write map features, export layers and serve vector tiles with an API key.',
+  description: 'The IoBeacons API library: maps, devices, alerts, reports, satellites and weather from code, with JavaScript and Python libraries and an interactive reference.',
   body: `
 <section class="page-hero"><div class="wrap narrow">
   ${crumbs('Developers')}
   <h1>Build on IoBeacons.</h1>
   <p class="lede">Everything you can do in Maps, you can do from code. Send positions from devices, keep your own systems in sync with your map layers and embed live maps in your product.</p>
-  <div class="btns"><a class="btn btn-primary" href="/maps/#signup">Get an API key</a><a class="btn btn-ghost" href="/contact/?topic=Integration">Talk to an engineer</a></div>
+  <div class="btns"><a class="btn btn-primary" href="/developers/api/">API reference</a><a class="btn btn-ghost" href="/maps/#signup">Get an API key</a><a class="btn btn-ghost" href="/contact/?topic=Integration">Talk to an engineer</a></div>
 </div></section>
 
 <section class="band"><div class="wrap narrow">
@@ -445,7 +446,7 @@ const developers = {
   </ol>
 <pre><code>curl https://iobeacons.com/maps/api/v1/maps \\
   -H "Authorization: Bearer iobm_your_key_here"</code></pre>
-  <p class="muted">Responses are JSON. Errors come back with an HTTP status and an <code>error</code> message you can show to a person. The API is part of the Professional plan and above.</p>
+  <p class="muted">Responses are JSON. Errors come back with an HTTP status and an <code>error</code> message you can show to a person. The API is part of the Professional plan and above (100,000 calls a month on Professional, 1,000,000 on Business). Check a key with <code>GET /me</code>.</p>
 </div></section>
 
 <section id="positions"><div class="wrap narrow">
@@ -463,25 +464,43 @@ const developers = {
   <p class="muted">The answer lists any alerts the new positions set off, so your system can react straight away.</p>
 </div></section>
 
-<section class="band"><div class="wrap narrow">
-  <h2>Endpoints</h2>
+<section class="band" id="library"><div class="wrap narrow">
+  <h2>The API library</h2>
+  <p>Every part of the platform is in the API: maps and layers, features, sites, zones, devices and positions, alert rules, reports, notes and findings, live data layers, and satellites and weather. The <a href="/developers/api/">API reference</a> lists all of it with examples in curl, JavaScript and Python, and lets you try each call with your own key.</p>
   <div class="table-wrap"><table class="api">
-    <thead><tr><th>Method</th><th>Path</th><th>What it does</th></tr></thead>
+    <thead><tr><th>Area</th><th>What you can do</th></tr></thead>
     <tbody>
-      <tr><td>GET</td><td><code>/maps</code></td><td>List maps in the workspace</td></tr>
-      <tr><td>GET</td><td><code>/maps/{id}</code></td><td>A map with its layers and saved view</td></tr>
-      <tr><td>GET</td><td><code>/layers/{id}/features</code></td><td>Features in a layer as GeoJSON</td></tr>
-      <tr><td>POST</td><td><code>/layers/{id}/features</code></td><td>Add a GeoJSON Feature or FeatureCollection</td></tr>
-      <tr><td>GET</td><td><code>/layers/{id}/export.geojson</code></td><td>Download a layer (also <code>.csv</code> and <code>.kml</code>)</td></tr>
-      <tr><td>GET</td><td><code>/tiles/{layer}/{z}/{x}/{y}.pbf</code></td><td>Vector tiles for large layers</td></tr>
-      <tr><td>GET, POST</td><td><code>/sites</code></td><td>List or add sites</td></tr>
-      <tr><td>GET</td><td><code>/devices</code></td><td>Devices with their last position</td></tr>
-      <tr><td>POST</td><td><code>/devices/{id}/positions</code></td><td>Send one or many positions</td></tr>
-      <tr><td>GET</td><td><code>/devices/{id}/track</code></td><td>A device's recent trail</td></tr>
-      <tr><td>GET</td><td><code>/rules</code>, <code>/alerts</code></td><td>Alert rules and the alerts they raised</td></tr>
+      <tr><td><a href="/developers/api/#maps">Maps</a>, <a href="/developers/api/#layers">layers</a>, <a href="/developers/api/#features">features</a></td><td>Create and share maps, add layers, read and write GeoJSON, upload files, export, vector tiles</td></tr>
+      <tr><td><a href="/developers/api/#devices">Devices</a></td><td>Send one or 1,000 positions at once, read trails and last positions</td></tr>
+      <tr><td><a href="/developers/api/#sites">Sites</a>, <a href="/developers/api/#zones">zones</a>, <a href="/developers/api/#alerts">alerts</a></td><td>Places, geofences, rules that email, text or call your webhook, and the alerts they raised</td></tr>
+      <tr><td><a href="/developers/api/#reports">Reports</a></td><td>Site Intelligence Reports for any point, as JSON or PDF</td></tr>
+      <tr><td><a href="/developers/api/#space">Space</a></td><td>Where any satellite or piece of debris is now or at any moment, its ground track and catalogue record</td></tr>
+      <tr><td><a href="/developers/api/#weather">Weather</a>, <a href="/developers/api/#catalog">catalog</a></td><td>Radar loop frames, Doppler winds, warnings, earthquakes, wildfires, flood zones and address search</td></tr>
+      <tr><td><a href="/developers/api/#notes">Notes</a>, <a href="/developers/api/#findings">findings</a></td><td>Pin notes for your team and save views you can share by link</td></tr>
     </tbody>
   </table></div>
-  <p class="muted" style="margin-top:14px">All paths are under <code>https://iobeacons.com/maps/api/v1</code>.</p>
+  <h3 style="margin-top:32px">Client libraries</h3>
+  <p>Each is one file with no dependencies. Every endpoint is a method, named as in the reference.</p>
+  <div class="table-wrap"><table class="api">
+    <thead><tr><th>Language</th><th>Download</th><th>Works with</th></tr></thead>
+    <tbody>
+      <tr><td>JavaScript</td><td><a href="/developers/sdk/iobeacons.mjs" download>iobeacons.mjs</a> and <a href="/developers/sdk/iobeacons.d.ts" download>types</a></td><td>Node 18+, Deno, Bun and browsers</td></tr>
+      <tr><td>Python</td><td><a href="/developers/sdk/iobeacons.py" download>iobeacons.py</a></td><td>Python 3.8+, standard library only</td></tr>
+      <tr><td>Anything else</td><td><a href="/developers/openapi.json">OpenAPI 3.1 description</a></td><td>Postman, Insomnia, or a generator for your language</td></tr>
+    </tbody>
+  </table></div>
+<pre><code>// JavaScript
+import { IoBeacons } from './iobeacons.mjs';
+const io = new IoBeacons(process.env.IOBEACONS_API_KEY);
+await io.sendPositions('truck-12', { lon: -95.99, lat: 36.15, speed_mph: 34 });
+const iss = await io.satellitePosition(25544);   // { lon, lat, altKm, speedKmS }
+
+# Python
+from iobeacons import IoBeacons
+io = IoBeacons()   # reads IOBEACONS_API_KEY
+io.send_positions("truck-12", {"lon": -95.99, "lat": 36.15, "speed_mph": 34})
+iss = io.satellite_position(25544)</code></pre>
+  <div class="btns" style="margin-top:18px"><a class="btn btn-primary" href="/developers/api/">Open the API reference</a></div>
 </div></section>
 
 <section><div class="wrap narrow">
@@ -656,4 +675,6 @@ const security = legal('security', '/security/', 'Security', 'How IoBeacons prot
 <h2>Reporting a problem</h2>
 <p>If you think you have found a security issue, please <a href="/contact/?topic=Support">contact us</a> with details. We will reply, keep you updated and credit you if you wish.</p>`);
 
-export const PAGES = [home, platform, maps, space, network, research, developers, contact, privacy, terms, governance, ethics, security];
+const developersApi = apiReferencePage({ crumbs, CTA });
+
+export const PAGES = [home, platform, maps, space, network, research, developers, developersApi, contact, privacy, terms, governance, ethics, security];

@@ -342,7 +342,10 @@ const RENDER = {
     const apiBase = `${location.origin}${BASE}/api/v1`;
     clear(pane).append(
       h('h3', {}, 'API keys'),
-      h('p', { class: 'small' }, `Use a key as "Authorization: Bearer <key>" against ${apiBase}. The API has the same endpoints as the app: maps, layers, features, sites, zones, devices, positions, rules, alerts and reports.`),
+      h('p', { class: 'small' }, `Use a key as "Authorization: Bearer <key>" against ${apiBase}. Everything in the app is in the API: maps, layers, features, sites, zones, devices and positions, alerts, reports, notes and findings, plus satellite positions and weather radar.`),
+      h('p', { class: 'small row wrap' }, h('a', { href: '/developers/api/', target: '_blank', rel: 'noopener' }, 'API reference and console'), ' · ',
+        h('a', { href: '/developers/sdk/iobeacons.mjs', download: '' }, 'JavaScript library'), ' · ',
+        h('a', { href: '/developers/sdk/iobeacons.py', download: '' }, 'Python library')),
       !state.session.plan.features.api ? h('p', { class: 'notice' }, 'The API comes with the Professional plan.') : h('form', { class: 'row wrap', onsubmit: async (e) => {
         e.preventDefault();
         try {

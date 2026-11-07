@@ -45,7 +45,7 @@ export function slugify(s) {
 
 // Simple in-memory rate limiter (per process) for sign-in and sign-up.
 const buckets = new Map();
-export function rateLimit(key, max, windowMs) {
+export function rateLimit(key, max, windowMs, message = 'Too many attempts. Wait a few minutes and try again.') {
   if (process.env.RATE_LIMIT === 'off') return;
   const now = Date.now();
   const b = buckets.get(key) || { n: 0, reset: now + windowMs };
@@ -53,5 +53,5 @@ export function rateLimit(key, max, windowMs) {
   b.n++;
   buckets.set(key, b);
   if (buckets.size > 10000) for (const [k, v] of buckets) if (v.reset < now) buckets.delete(k);
-  if (b.n > max) throw new HttpError(429, 'Too many attempts. Wait a few minutes and try again.');
+  if (b.n > max) throw new HttpError(429, message);
 }

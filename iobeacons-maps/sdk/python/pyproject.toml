@@ -1,0 +1,18 @@
+[project]
+name = "iobeacons"
+version = "1.0.0"
+description = "Client for the IoBeacons API: maps, live data, devices, alerts, satellites and weather."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = []
+
+[project.urls]
+Homepage = "https://iobeacons.com/developers/api/"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["iobeacons"]
