@@ -76,3 +76,49 @@ export async function spaceGroup(key) {
   }
   return { key: g.key, name: g.name, color: g.color, source: 'CelesTrak', satellites: (sats || []).slice(0, g.limit || 400) };
 }
+
+// Catalogue record for one object (owner, launch, size), from CelesTrak SATCAT.
+const OWNERS = {
+  US: 'United States', PRC: 'China', CIS: 'Russia / former USSR', UK: 'United Kingdom', FR: 'France', JPN: 'Japan', IND: 'India',
+  ESA: 'European Space Agency', EUME: 'EUMETSAT', EUTE: 'Eutelsat', GER: 'Germany', IT: 'Italy', CA: 'Canada', SKOR: 'South Korea',
+  ISS: 'International (ISS partners)', ISRA: 'Israel', BRAZ: 'Brazil', AUS: 'Australia', SPN: 'Spain', NZ: 'New Zealand', UAE: 'United Arab Emirates',
+  SES: 'SES', O3B: 'O3b (SES)', ITSO: 'Intelsat', IRID: 'Iridium', GLOB: 'Globalstar', ORB: 'Orbcomm', TURK: 'Turkey', ARGN: 'Argentina',
+  SAFR: 'South Africa', LUXE: 'Luxembourg', FIN: 'Finland', NOR: 'Norway', SWED: 'Sweden', NETH: 'Netherlands', TWN: 'Taiwan', IRAN: 'Iran',
+  NKOR: 'North Korea', INDO: 'Indonesia', THAI: 'Thailand', MEX: 'Mexico', SAUD: 'Saudi Arabia', ASRA: 'Austria', SWTZ: 'Switzerland', AB: 'Arab Satellite Org.',
+};
+const SITES = {
+  AFETR: 'Cape Canaveral, Florida', AFWTR: 'Vandenberg, California', TYMSC: 'Baikonur, Kazakhstan', PLMSC: 'Plesetsk, Russia', VOSTO: 'Vostochny, Russia',
+  KYMSC: 'Kapustin Yar, Russia', JSC: 'Jiuquan, China', JSSLC: 'Jiuquan, China', TSC: 'Taiyuan, China', TAISC: 'Taiyuan, China', XSC: 'Xichang, China',
+  XICLF: 'Xichang, China', WSC: 'Wenchang, China', WLPIS: 'Wallops Island, Virginia', FRGUI: 'Kourou, French Guiana', SRILR: 'Sriharikota, India',
+  TNSTA: 'Tanegashima, Japan', KSCUT: 'Uchinoura, Japan', RLLB: 'Mahia, New Zealand (Rocket Lab)', KODAK: 'Kodiak, Alaska', SEAL: 'Sea Launch (Pacific)',
+  SVOBO: 'Svobodny, Russia', YAVNE: 'Palmachim, Israel', NSC: 'Naro, South Korea', SNMLP: 'San Marco, Kenya', SEMLS: 'Semnan, Iran', YUN: 'Sohae, North Korea',
+  OREN: 'Yasny, Russia', DLS: 'Dombarovsky, Russia', SADOL: 'Submarine launch (Barents Sea)', KWAJ: 'Kwajalein, Marshall Islands', ERAS: 'Air launch (Pegasus)',
+  HGSTR: 'Hammaguir, Algeria', WOMRA: 'Woomera, Australia', CHINA: 'China (sea launch)', JJSLA: 'Jeju, South Korea',
+};
+const TYPES = { PAY: 'Satellite (payload)', 'R/B': 'Rocket body', DEB: 'Debris', UNK: 'Unknown' };
+const STATUS = { '+': 'Operating', '-': 'Not operating', P: 'Partly operating', B: 'Backup', S: 'Spare', X: 'Extended mission', D: 'Decayed', '?': 'Unknown' };
+
+export async function spaceInfo(norad) {
+  const n = String(norad).replace(/\D/g, '');
+  if (!n) return null;
+  let rec;
+  if (config.offline) rec = n === '25544' ? { OBJECT_NAME: 'ISS (ZARYA)', OBJECT_ID: '1998-067A', NORAD_CAT_ID: 25544, OBJECT_TYPE: 'PAY', OPS_STATUS_CODE: '+', OWNER: 'ISS', LAUNCH_DATE: '1998-11-20', LAUNCH_SITE: 'TYMSC', DECAY_DATE: null, PERIOD: 92.9, INCLINATION: 51.64, APOGEE: 425, PERIGEE: 417, RCS: 401.2 } : null;
+  else {
+    try {
+      const r = await fetchCached(`satcat:${n}`, `https://celestrak.org/satcat/records.php?CATNR=${n}&FORMAT=json`, { ttlSec: 7 * 86400, timeoutMs: 12000 });
+      if (r.status < 400) { const j = JSON.parse(r.body.toString('utf8')); rec = Array.isArray(j) ? j[0] : null; }
+    } catch { rec = null; }
+  }
+  if (!rec) return null;
+  return {
+    norad: rec.NORAD_CAT_ID, name: rec.OBJECT_NAME, intlId: rec.OBJECT_ID,
+    type: TYPES[rec.OBJECT_TYPE] || rec.OBJECT_TYPE || null, typeCode: rec.OBJECT_TYPE || null,
+    status: STATUS[rec.OPS_STATUS_CODE] || null,
+    owner: OWNERS[rec.OWNER] || rec.OWNER || null,
+    launchDate: rec.LAUNCH_DATE || null, launchSite: SITES[rec.LAUNCH_SITE] || rec.LAUNCH_SITE || null,
+    decayDate: rec.DECAY_DATE || null,
+    apogeeKm: rec.APOGEE ?? null, perigeeKm: rec.PERIGEE ?? null, periodMin: rec.PERIOD ?? null, inclination: rec.INCLINATION ?? null,
+    rcsM2: rec.RCS ?? null,
+    source: 'CelesTrak SATCAT',
+  };
+}

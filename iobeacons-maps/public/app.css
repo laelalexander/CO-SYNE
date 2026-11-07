@@ -457,3 +457,11 @@ body.has-site-header .orb { top: var(--site-h, 47px); }
   .orb-hud { display: none; }
   .orb-btn.follow:disabled { display: none; }
 }
+.orb-panel { width: 330px; }
+.orb-about { margin: -4px 0 10px; font-size: 13px; color: #c3d1e3; line-height: 1.45; }
+.orb-cams { display: flex; gap: 6px; margin: 0 0 6px; }
+.orb-cams .orb-btn { flex: 1; justify-content: center; height: 30px; padding: 0 8px; font-size: 13px; }
+.orb-sec { border-top: 1px solid #1e3049; margin-top: 10px; padding-top: 8px; }
+.orb-sec h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #ff9a5c; }
+.orb-sec .orb-note { margin: 6px 0 0; }
+.orb-panel .orb-note a { color: #8fc3ff; }

@@ -18,6 +18,10 @@ for (const f of await readdir(mlDist)) {
   await cp(path.join(mlDist, f), path.join(vendor, f));
 }
 
+// Draco decoder for the compressed NASA spacecraft models in the orbits view.
+await mkdir(r('public/vendor/draco'), { recursive: true });
+for (const f of ['draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrapper.js']) await cp(r('node_modules/three/examples/jsm/libs/draco/gltf', f), r('public/vendor/draco', f));
+
 // 2. Catalog tile info for shared maps (no sign-in, so no /catalog call).
 process.env.OFFLINE ??= '1';
 const { CATALOG } = await import(r('src/services/catalog.js'));

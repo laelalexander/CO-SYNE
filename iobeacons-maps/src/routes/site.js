@@ -3,7 +3,7 @@ import { requireUser, requireStaff, HttpError } from '../auth.js';
 import { many, q } from '../db/pool.js';
 import { config } from '../config.js';
 import { sendEmail } from '../services/notify.js';
-import { SPACE_GROUPS, spaceGroup } from '../services/space.js';
+import { SPACE_GROUPS, spaceGroup, spaceInfo } from '../services/space.js';
 import { forwardInquiry } from '../services/fulllobby.js';
 import { ah, str, emailOk, rateLimit } from './util.js';
 
@@ -11,6 +11,12 @@ import { ah, str, emailOk, rateLimit } from './util.js';
 export const router = express.Router();
 
 router.get('/space', (_req, res) => res.json(SPACE_GROUPS.map(({ key, name, color, optional, debris }) => ({ key, name, color, optional: Boolean(optional), debris: Boolean(debris) }))));
+router.get('/space/info/:norad', ah(async (req, res) => {
+  const info = await spaceInfo(req.params.norad);
+  if (!info) throw new HttpError(404, 'No catalogue record for that object.');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.json(info);
+}));
 router.get('/space/:group', ah(async (req, res) => {
   const g = await spaceGroup(req.params.group);
   if (!g) throw new HttpError(404, 'Unknown satellite group.');

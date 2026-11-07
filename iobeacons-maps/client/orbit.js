@@ -3,7 +3,9 @@
 // Built as its own bundle (public/orbit.js) and loaded only when opened, so the
 // map itself stays light.
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { twoline2satrec, propagate, gstime, eciToGeodetic } from 'satellite.js';
+import { modelChoice, normalise, loadGltf, disposeModel, aboutText } from './orbit-models.js';
 
 const R = 100;            // Earth radius in scene units
 const KM = 6371;          // Earth radius in km
@@ -152,7 +154,14 @@ export async function openOrbit(opts = {}) {
   const scene = new THREE.Scene(); st.scene = scene;
   scene.background = new THREE.Color(0x02050b);
   const cam = new THREE.PerspectiveCamera(42, 1, 0.5, 20000);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+  const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
+  scene.add(sunLight);
+  {
+    const pm = new THREE.PMREMGenerator(ren);
+    scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+    pm.dispose();
+  }
 
   // Stars
   {
@@ -334,13 +343,14 @@ export async function openOrbit(opts = {}) {
   nowBtn.addEventListener('click', () => { simNow(); sim.t = Date.now(); sim.rate = 1; rateSel.value = '1'; if (sim.paused) pauseBtn.click(); primeProp(); });
   followBtn.addEventListener('click', () => setFollow(!view.follow));
 
-  function setFollow(on) {
+  function setFollow(on, close = false) {
     view.follow = on && sel >= 0;
-    view.want = view.follow ? 30 : view.home;
-    view.oyaw = 0.5; view.opitch = 0.35;
+    view.want = view.follow ? (close ? 7 : 30) : view.home;
+    view.oyaw = close ? 0.7 : 0.5; view.opitch = close ? 0.3 : 0.35;
     if (view.follow) view.spin = false;
     followBtn.textContent = view.follow ? 'Back to Earth' : 'Follow';
     followBtn.classList.toggle('on', view.follow);
+    panel.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', (b.dataset.cam === 'close' && view.follow && close) || (b.dataset.cam === 'follow' && view.follow && !close) || (b.dataset.cam === 'earth' && !view.follow)));
   }
 
   search.addEventListener('input', () => {
@@ -355,14 +365,24 @@ export async function openOrbit(opts = {}) {
   search.addEventListener('keydown', (e) => { if (e.key === 'Enter') hits.querySelector('.orb-hit')?.click(); if (e.key === 'Escape') { hits.hidden = true; search.blur(); } });
 
   // ---------- selection ----------
-  let pathAt = 0;
+  let pathAt = 0, model = null, modelToken = 0;
   function select(i) {
     sel = i;
     ring.visible = orbitLine.visible = groundLine.visible = i >= 0;
     label.hidden = i < 0;
     followBtn.disabled = i < 0;
+    disposeModel(model); model = null; modelToken++;
     if (i < 0) { panel.hidden = true; setFollow(false); return; }
     const s = sats[i];
+    const p0 = geo(s.rec, new Date(simNow()));
+    const choice = modelChoice({ id: s.id, name: s.name, cls: s.cls, altKm: p0?.alt ?? 0 });
+    const noteEl = el('p', { class: 'orb-note' }, choice.note, ' Shown many times larger than life so you can see it.');
+    const token = modelToken;
+    const place = (obj, shared) => { if (token !== modelToken) return; disposeModel(model); model = normalise(obj, 3); model.userData.shared = shared; scene.add(model); };
+    if (choice.kind === 'gltf') {
+      if (choice.fallback) place(choice.fallback(), false);
+      loadGltf(base, choice.file).then((g) => place(g, true)).catch(() => { if (!choice.fallback) place(choice.build ? choice.build() : new THREE.Group(), false); });
+    } else place(choice.build(), false);
     const c = CLASSES[s.cls];
     label.replaceChildren(el('b', {}, s.name), el('span', {}, c.label));
     const n = s.rec.no / 60; // rad/s
@@ -370,22 +390,47 @@ export async function openOrbit(opts = {}) {
     const e = s.rec.ecco;
     const period = (2 * Math.PI / s.rec.no);
     const row = (k, v, live) => el('tr', {}, el('th', {}, k), el('td', live ? { 'data-k': live } : {}, v));
-    panel.replaceChildren(
+    const hi = a * (1 + e) - KM, lo = a * (1 - e) - KM;
+    const orbitKind = hi > 34000 && lo > 34000 ? 'Geostationary (stays over one spot)' : e > 0.25 ? 'Highly elliptical' : hi > 2000 ? 'Medium Earth orbit' : 'Low Earth orbit';
+    const about = aboutText(s.name);
+    const catalogue = el('tbody', {}, row('Catalogue', 'Loading…'));
+    const sec = (title, ...kids) => el('section', { class: 'orb-sec' }, el('h4', {}, title), ...kids);
+    panel.replaceChildren(...[
       el('button', { class: 'orb-x', 'aria-label': 'Close', onclick: () => select(-1) }, '✕'),
       el('div', { class: 'orb-eyebrow' }, el('span', { class: 'k', style: { background: c.css } }), c.label, ' · ', s.group),
       el('h3', {}, s.name),
-      el('table', {}, el('tbody', {},
-        row('Over', '…', 'pos'), row('Altitude', '…', 'alt'), row('Speed', '…', 'spd'),
+      about ? el('p', { class: 'orb-about' }, about) : null,
+      el('div', { class: 'orb-cams', role: 'group', 'aria-label': 'Camera' },
+        el('button', { class: 'orb-btn', 'data-cam': 'close', onclick: () => setFollow(true, true) }, 'Close up'),
+        el('button', { class: 'orb-btn', 'data-cam': 'follow', onclick: () => setFollow(true) }, 'Follow'),
+        el('button', { class: 'orb-btn', 'data-cam': 'earth', onclick: () => setFollow(false) }, 'Globe')),
+      sec('Right now', el('table', {}, el('tbody', { 'data-live': '' },
+        row('Over', '…', 'pos'), row('Altitude', '…', 'alt'), row('Speed', '…', 'spd'), row('Sunlight', '…', 'sun')))),
+      sec('Its orbit', el('table', {}, el('tbody', {},
+        row('Type', orbitKind),
         row('One orbit', period > 1000 ? `${fmt(period / 60, 1)} hours` : `${fmt(period, 0)} minutes`),
-        row('Highest / lowest', `${fmt(a * (1 + e) - KM)} / ${fmt(a * (1 - e) - KM)} km`),
-        row('Inclination', `${fmt(s.rec.inclo * 180 / Math.PI, 1)}°`),
-        row('NORAD id', s.id),
-        row('Elements from', epochText(s.rec)))),
-      el('p', { class: 'orb-note' }, 'Blue line: where it goes in the next orbit. Orange: the path over the ground below it.'),
-      el('div', { class: 'orb-actions' },
-        el('button', { class: 'orb-btn', onclick: () => setFollow(!view.follow) }, 'Follow'),
-        el('a', { class: 'orb-btn', href: `https://celestrak.org/satcat/table-satcat.php?CATNR=${s.id}`, target: '_blank', rel: 'noopener' }, 'Catalogue record ↗')));
+        row('Orbits a day', fmt(1440 / period, 1)),
+        row('Highest / lowest', `${fmt(hi)} / ${fmt(lo)} km`),
+        row('Inclination', `${fmt(s.rec.inclo * 180 / Math.PI, 1)}°`))),
+        el('p', { class: 'orb-note' }, 'Blue line: where it goes in the next orbit. Orange: the path over the ground below it.')),
+      sec('Catalogue record', el('table', {}, catalogue)),
+      sec('The 3D model', noteEl),
+      el('p', { class: 'orb-note' }, `NORAD ${s.id} · orbital elements from ${epochText(s.rec)} · `,
+        el('a', { href: `https://celestrak.org/satcat/table-satcat.php?CATNR=${s.id}`, target: '_blank', rel: 'noopener' }, 'CelesTrak record ↗'))].filter(Boolean));
     panel.hidden = false;
+    panel.scrollTop = 0;
+    setFollow(view.follow, view.want < 12);
+    opts.get(`/space/info/${s.id}`).then((d) => {
+      if (token !== modelToken) return;
+      const age = d.launchDate ? Math.floor((Date.now() - Date.parse(d.launchDate)) / (365.25 * 864e5)) : null;
+      const size = d.rcsM2 == null ? null : d.rcsM2 < 0.1 ? 'Small (under about 30 cm)' : d.rcsM2 < 1 ? 'Medium (about 0.3 to 1 m)' : `Large (radar size about ${fmt(d.rcsM2, d.rcsM2 < 10 ? 1 : 0)} m²)`;
+      catalogue.replaceChildren(...[
+        d.type && row('Object', d.type), d.status && row('Status', d.status), d.owner && row('Owner', d.owner),
+        d.launchDate && row('Launched', `${d.launchDate}${age != null ? ` (${age < 1 ? 'this year' : `${age} year${age === 1 ? '' : 's'} ago`})` : ''}`),
+        d.launchSite && row('Launch site', d.launchSite), d.intlId && row('International id', d.intlId),
+        size && row('Size', size), d.decayDate && row('Re-entered', d.decayDate),
+      ].filter(Boolean));
+    }).catch(() => { if (token === modelToken) catalogue.replaceChildren(row('Catalogue', 'No record available right now.')); });
     pathAt = 0;
   }
   function epochText(rec) {
@@ -422,13 +467,31 @@ export async function openOrbit(opts = {}) {
     ring.position.copy(selPos);
     ring.quaternion.copy(cam.quaternion);
     ring.scale.setScalar(Math.max(1.4, view.dist * 0.016));
+    ring.visible = view.dist > 14;
+    if (model) {
+      model.visible = view.dist < 140;
+      model.position.copy(selPos);
+      model.scale.setScalar(Math.max(0.8, Math.min(3, view.dist / 14)));
+      // Point it along its direction of travel, top away from the Earth.
+      const ahead = geo(s.rec, new Date(now + 5000));
+      if (ahead) {
+        const fwd = toVec(ahead.lat, ahead.lon, ahead.alt).sub(selPos).normalize();
+        const up = selPos.clone().normalize();
+        const right = new THREE.Vector3().crossVectors(up, fwd).normalize();
+        const trueUp = new THREE.Vector3().crossVectors(fwd, right).normalize();
+        model.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, trueUp, fwd));
+      }
+    }
     ring.children.forEach((m) => { m.rotation.z = performance.now() / 900; });
     if (performance.now() - pathAt > 1000) { drawPaths(now); pathAt = performance.now(); }
-    const live = panel.querySelector('tbody');
+    const live = panel.querySelector('[data-live]');
     if (live) {
       live.querySelector('[data-k=pos]').textContent = `${Math.abs(p.lat).toFixed(2)}° ${p.lat >= 0 ? 'N' : 'S'}, ${Math.abs(p.lon).toFixed(2)}° ${p.lon >= 0 ? 'E' : 'W'}`;
       live.querySelector('[data-k=alt]').textContent = `${fmt(p.alt)} km (${fmt(p.alt * 0.621371)} mi)`;
       live.querySelector('[data-k=spd]').textContent = p.speed ? `${p.speed.toFixed(2)} km/s (${fmt(p.speed * 2236.94)} mph)` : '—';
+      const sun = earthU.sun.value, d = selPos.dot(sun);
+      const shade = d < 0 && selPos.clone().addScaledVector(sun, -d).length() < R;
+      live.querySelector('[data-k=sun]').textContent = shade ? "In Earth's shadow" : 'In sunlight';
     }
     // Label follows the object unless it is behind the Earth.
     const toObj = selPos.clone().sub(cam.position);
@@ -450,7 +513,7 @@ export async function openOrbit(opts = {}) {
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const [a, b] = [...ptrs.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch) { view.zoomed = true; view.want = view.dist = Math.max(view.follow ? 6 : 112, Math.min(3000, view.dist * pinch / d)); }
+      if (pinch) { view.zoomed = true; view.want = view.dist = Math.max(view.follow ? 3 : 112, Math.min(3000, view.dist * pinch / d)); }
       pinch = d; moved += 10; return;
     }
     const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
@@ -463,7 +526,7 @@ export async function openOrbit(opts = {}) {
   const up = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; };
   listen(canvas, 'pointerup', (e) => { up(e); if (moved < 6) pick(e); });
   listen(canvas, 'pointercancel', up);
-  listen(canvas, 'wheel', (e) => { e.preventDefault(); view.spin = false; view.zoomed = true; view.want = Math.max(view.follow ? 6 : 112, Math.min(3000, view.want * (1 + Math.sign(e.deltaY) * 0.12))); }, { passive: false });
+  listen(canvas, 'wheel', (e) => { e.preventDefault(); view.spin = false; view.zoomed = true; view.want = Math.max(view.follow ? 3 : 112, Math.min(3000, view.want * (1 + Math.sign(e.deltaY) * 0.12))); }, { passive: false });
 
   const ray = new THREE.Raycaster();
   function pick(e) {
@@ -510,6 +573,7 @@ export async function openOrbit(opts = {}) {
     advanceProp(now);
     interpolate(now);
     earthU.sun.value.copy(sunDir(new Date(now)));
+    sunLight.position.copy(earthU.sun.value).multiplyScalar(1000);
     if (view.spin) view.yaw += 0.0007;
     if (sel >= 0) updateSelected(now);
     view.target.lerp(view.follow && sel >= 0 ? selPos : origin, 0.12);
