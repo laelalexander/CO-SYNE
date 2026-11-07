@@ -105,6 +105,10 @@ export declare class IoBeacons {
   satellitePosition(norad: string | number, query?: { time?: string | number }): Promise<any>;
   /** Ground track */
   satelliteTrack(norad: string | number, query?: { time?: string | number; minutes?: string | number; step?: string | number }): Promise<any>;
+  /** Recordings by ground stations */
+  satelliteHeard(norad: string | number): Promise<any>;
+  /** Check our positions */
+  checkIss(): Promise<any>;
   /** Catalogue record */
   satelliteInfo(norad: string | number): Promise<any>;
   /** Radar loop frames */

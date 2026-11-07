@@ -249,6 +249,13 @@ test('API library: spec, /me, CORS, quota headers, space, weather and notes over
   assert.equal((await api.get('/v1/space/objects/1/position')).status, 404);
   assert.equal((await api.get('/v1/space/objects/25544/position?time=nonsense')).status, 400);
   assert.equal((await api.get('/v1/weather/radar-frames')).data.frames.length, 11);
+  const heard = await api.get('/v1/space/objects/25544/heard');
+  assert.equal(heard.status, 200);
+  assert.ok(heard.data.observations[0].station.name);
+  const chk = await client().get('/space/check/iss');
+  assert.equal(chk.status, 200, JSON.stringify(chk.data));
+  assert.equal(chk.data.agrees, true);
+  assert.ok(chk.data.apartKm < 25);
 
   const n = await api.post('/v1/notes', { body: 'From a script', target: { kind: 'place', lng: -95.9, lat: 36.1 } });
   assert.equal(n.status, 201, JSON.stringify(n.data));

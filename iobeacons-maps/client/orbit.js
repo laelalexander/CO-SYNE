@@ -415,6 +415,8 @@ export async function openOrbit(opts = {}) {
     const orbitKind = hi > 34000 && lo > 34000 ? 'Geostationary (stays over one spot)' : e > 0.25 ? 'Highly elliptical' : hi > 2000 ? 'Medium Earth orbit' : 'Low Earth orbit';
     const about = aboutText(s.name);
     const catalogue = el('tbody', {}, row('Catalogue', 'Loading…'));
+    const heard = el('div', { class: 'orb-heard' }, el('p', { class: 'orb-note' }, 'Looking for recordings…'));
+    const check = Number(s.id) === 25544 ? el('p', { class: 'orb-check' }, 'Checking against an independent tracker…') : null;
     panel.replaceChildren(...[
       el('button', { class: 'orb-x', 'aria-label': 'Close', onclick: () => select(-1) }, '✕'),
       el('div', { class: 'orb-eyebrow' }, el('span', { class: 'k', style: { background: c.css } }), c.label, ' · ', s.group),
@@ -433,7 +435,9 @@ export async function openOrbit(opts = {}) {
         row('Highest / lowest', `${fmt(hi)} / ${fmt(lo)} km`),
         row('Inclination', `${fmt(s.rec.inclo * 180 / Math.PI, 1)}°`))),
         el('p', { class: 'orb-note' }, 'Blue line: where it goes in the next orbit. Orange: the path over the ground below it.')),
+      check ? sec('Position check', check) : null,
       wsActions(s),
+      sec('Heard by ground stations', heard),
       sec('Catalogue record', el('table', {}, catalogue)),
       sec('The 3D model', noteEl),
       el('p', { class: 'orb-note' }, `NORAD ${s.id} · orbital elements from ${epochText(s.rec)} · `,
@@ -441,6 +445,22 @@ export async function openOrbit(opts = {}) {
     panel.hidden = false;
     panel.scrollTop = 0;
     setFollow(view.follow, view.want < 12);
+    const ago = (t) => { const m = Math.round((Date.now() - Date.parse(t)) / 60000); return m < 60 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+    opts.get(`/space/objects/${s.id}/heard`).then((d) => {
+      if (token !== modelToken) return;
+      const obs = d.observations.slice(0, 5);
+      heard.replaceChildren(...(obs.length ? [
+        el('p', { class: 'orb-note' }, 'Real radio signals from this object, recorded by volunteer stations in the open SatNOGS network.'),
+        ...obs.map((o) => el('a', { class: 'orb-obs', href: o.link, target: '_blank', rel: 'noopener' },
+          el('b', {}, o.station.name || `Station ${o.station.id}`),
+          el('span', {}, [ago(o.start), o.frequencyMHz && `${o.frequencyMHz} MHz`, o.mode, o.packets ? `${o.packets} packet${o.packets === 1 ? '' : 's'} decoded` : null].filter(Boolean).join(' · ')))),
+      ] : [el('p', { class: 'orb-note' }, 'No recent recordings. Many satellites don\'t transmit on bands volunteers can hear, and debris is silent.')]));
+    }).catch(() => { if (token === modelToken) heard.replaceChildren(el('p', { class: 'orb-note' }, 'The SatNOGS network can\'t be reached right now.')); });
+    if (check) opts.get('/space/check/iss').then((c) => {
+      if (token !== modelToken) return;
+      check.className = `orb-check ${c.agrees ? 'ok' : 'bad'}`;
+      check.textContent = `${c.agrees ? '✓ ' : ''}${c.note}`;
+    }).catch(() => { if (token === modelToken) check.textContent = 'The independent tracker can\'t be reached right now.'; });
     opts.get(`/space/info/${s.id}`).then((d) => {
       if (token !== modelToken) return;
       const age = d.launchDate ? Math.floor((Date.now() - Date.parse(d.launchDate)) / (365.25 * 864e5)) : null;

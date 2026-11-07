@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import { sendEmail } from '../services/notify.js';
 import { SPACE_GROUPS, spaceGroup, spaceInfo, spaceTle, positionAt, groundTrack, periodMin, noradOf } from '../services/space.js';
 import { usRadarFrames, worldRadarFrames, dopplerFor } from '../services/weather.js';
+import { heardBy, checkIss } from '../services/satnogs.js';
 import { forwardInquiry } from '../services/fulllobby.js';
 import { ah, str, emailOk, rateLimit, lonLat } from './util.js';
 
@@ -69,6 +70,22 @@ dataRouter.get('/space/objects/:norad/track', ah(async (req, res) => {
   const minutes = Math.min(1440, Math.max(1, Number(req.query.minutes) || Math.ceil(periodMin(t))));
   const step = Math.min(600, Math.max(10, Number(req.query.step) || 60));
   res.json({ type: 'Feature', geometry: groundTrack(t, from, minutes, step), properties: { norad: noradOf(t), name: t.name, from: from.toISOString(), minutes, stepSec: step } });
+}));
+// Recordings of this object by SatNOGS volunteer ground stations.
+dataRouter.get('/space/objects/:norad/heard', ah(async (req, res) => {
+  let h;
+  try { h = await heardBy(req.params.norad); } catch (e) { throw new HttpError(503, `SatNOGS can't be reached right now (${e.message}).`); }
+  if (!h) throw new HttpError(400, 'Give a NORAD catalogue number.');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(h);
+}));
+// Our ISS position checked against an independent tracker.
+dataRouter.get('/space/check/iss', ah(async (_req, res) => {
+  let c;
+  try { c = await checkIss(); } catch (e) { throw new HttpError(503, `The outside ISS tracker can't be reached right now (${e.message}).`); }
+  if (!c) throw new HttpError(503, 'No orbital elements for the ISS right now.');
+  res.set('Cache-Control', 'no-store');
+  res.json(c);
 }));
 // Every object in a group at one moment, as GeoJSON points.
 dataRouter.get('/space/:group/positions', ah(async (req, res) => {

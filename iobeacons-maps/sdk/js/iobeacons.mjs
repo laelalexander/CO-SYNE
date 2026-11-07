@@ -285,6 +285,14 @@ export class IoBeacons {
    */
   satelliteTrack(norad, query = {}) { return this.request('GET', `/space/objects/${enc(norad)}/track`, { query }); }
 
+  /** Recordings by ground stations. GET /space/objects/{norad}/heard
+   */
+  satelliteHeard(norad) { return this.request('GET', `/space/objects/${enc(norad)}/heard`); }
+
+  /** Check our positions. GET /space/check/iss
+   */
+  checkIss() { return this.request('GET', `/space/check/iss`); }
+
   /** Catalogue record. GET /space/info/{norad}
    */
   satelliteInfo(norad) { return this.request('GET', `/space/info/${enc(norad)}`); }

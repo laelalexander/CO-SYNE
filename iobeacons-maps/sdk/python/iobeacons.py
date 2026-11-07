@@ -305,6 +305,14 @@ class IoBeacons:
         """Ground track. GET /space/objects/{norad}/track"""
         return self.request("GET", f"/space/objects/{_q(norad)}/track", query={"time": time, "minutes": minutes, "step": step})
 
+    def satellite_heard(self, norad):
+        """Recordings by ground stations. GET /space/objects/{norad}/heard"""
+        return self.request("GET", f"/space/objects/{_q(norad)}/heard")
+
+    def check_iss(self):
+        """Check our positions. GET /space/check/iss"""
+        return self.request("GET", f"/space/check/iss")
+
     def satellite_info(self, norad):
         """Catalogue record. GET /space/info/{norad}"""
         return self.request("GET", f"/space/info/{_q(norad)}")
