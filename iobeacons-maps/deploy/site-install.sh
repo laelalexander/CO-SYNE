@@ -76,6 +76,24 @@ for page, current in (('featured-projects', 'projects'), ('maps-roadmap', 'maps'
     print(f'{page}: ' + ', '.join(notes))
 PY
 
+say "Same site icon on Featured Projects and Maps Roadmap"
+python3 - "$WWW" "$ROOT" <<'PY'
+import re, sys, os
+www, root = sys.argv[1], sys.argv[2]
+TAGS = ('<link rel="icon" href="/favicon.ico" sizes="48x48">\n'
+        '<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n'
+        '<link rel="apple-touch-icon" href="/apple-touch-icon.png">\n'
+        '<link rel="manifest" href="/manifest.webmanifest">\n')
+for page in ('featured-projects', 'maps-roadmap'):
+    for path in (os.path.join(www, page, 'index.html'), os.path.join(root, page, 'index.html')):
+        if not os.path.exists(path): continue
+        html = open(path, encoding='utf-8').read()
+        html = re.sub(r'[ \t]*<link\b[^>]*\brel=["\'](?:shortcut icon|icon|apple-touch-icon|apple-touch-icon-precomposed|manifest|mask-icon)["\'][^>]*>\s*\n?', '', html, flags=re.I)
+        html = re.sub(r'</head>', TAGS + '</head>', html, count=1, flags=re.I)
+        open(path, 'w', encoding='utf-8').write(html)
+        print(f'{page}: site icon set')
+PY
+
 # The free trial is 7 days (was 14). Fix the wording on the pages that are not generated here.
 for d in "$WWW/maps-roadmap" "$ROOT/maps-roadmap" "$WWW/featured-projects" "$ROOT/featured-projects"; do
   [ -f "$d/index.html" ] && sed -i -e 's/14-day trial/7-day trial/g' -e 's/14-day free trial/7-day free trial/g' -e 's/14 days free/7 days free/g' "$d/index.html"
@@ -125,7 +143,50 @@ PY
   sleep 1
 fi
 
+icon_ok() { curl -fsS -o /dev/null -w '%{content_type}' --max-time 15 "https://$DOMAIN/favicon.ico" 2>/dev/null | grep -qiv html; }
+if ! icon_ok; then
+  echo "The site icon files are not served yet; adding an nginx rule for them."
+  cp "$NGINX_SITE" "/root/$(basename "$NGINX_SITE").bak-icon-$STAMP"
+  python3 - "$NGINX_SITE" "$DOMAIN" "$ROOT" <<'PY'
+import re, sys
+site, domain, root = sys.argv[1], sys.argv[2], sys.argv[3]
+text = open(site).read()
+if 'site icon (added by site-install.sh)' in text: sys.exit(0)
+block = ('    # site icon (added by site-install.sh)\n'
+         '    location ~ ^/(favicon\\.ico|favicon\\.svg|apple-touch-icon(-precomposed)?\\.png|manifest\\.webmanifest|icons/icon[^/]*\\.(png|svg))$ {\n'
+         f'        root {root};\n'
+         '        try_files $uri =404;\n'
+         '        expires 7d;\n'
+         '    }\n')
+best = None
+for m in re.finditer(r'server\s*\{', text):
+    depth, i = 0, m.end() - 1
+    while i < len(text):
+        if text[i] == '{': depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0: break
+        i += 1
+    body = text[m.start():i]
+    if 'listen 443' in body or 'listen [::]:443' in body:
+        names = (re.search(r'server_name\s+([^;]+);', body) or [None, ''])[1].split()
+        score = (domain in names) * 2 + ('return 301' not in body)
+        if not best or score > best[0]: best = (score, m.start(), body)
+if not best: sys.exit('No HTTPS server block found.')
+_, start, body = best
+loc = body.find('\n    location')
+pos = start + (loc + 1 if loc >= 0 else body.find('{') + 2)
+open(site, 'w').write(text[:pos] + block + text[pos:])
+print('Added nginx rule.')
+PY
+  if nginx -t; then systemctl reload nginx; else
+    echo "nginx test failed; restoring."; cp "/root/$(basename "$NGINX_SITE").bak-icon-$STAMP" "$NGINX_SITE"; nginx -t && systemctl reload nginx; exit 1
+  fi
+  sleep 1
+fi
+
 ok=1
+icon_ok && echo "ok      /favicon.ico" || { echo "MISSING /favicon.ico"; ok=0; }
 for pair in /:home /platform/:platform /platform/maps/:maps /platform/space/:space /network/:network /research/:research /developers/:developers /contact/:contact /privacy/:privacy /terms/:terms; do
   url=${pair%%:*}; key=${pair##*:}
   n=$(check "$url" "$key")

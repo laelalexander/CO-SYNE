@@ -36,7 +36,10 @@ function layout(p) {
 <meta property="og:image" content="${SITE.origin}/site-assets/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#ff713d">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23ff713d'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/site-assets/site.css?v=${v.css}">
 ${p.head || ''}${p.noindex ? '<meta name="robots" content="noindex">\n' : ''}</head>
 <body data-page="${esc(p.key)}">
